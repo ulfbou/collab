@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/repository-state.schema.json",
+  "title": "Repository State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "repository", "planning", "evidence", "requestedOutcome"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nameWithOwner", "defaultBranch", "currentBranch", "head", "workingTree"],
+      "properties": {
+        "nameWithOwner": {"type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$"},
+        "defaultBranch": {"type": "string"}, "currentBranch": {"type": "string"},
+        "head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "workingTree": {"enum": ["CLEAN", "DIRTY"]}
+      }
+    },
+    "planning": {
+      "type": "object", "additionalProperties": false,
+      "required": ["githubAvailable", "openIssues", "openMilestones", "openPullRequests", "recentlyMergedPullRequests"],
+      "properties": {
+        "githubAvailable": {"type": "boolean"}, "openIssues": {"type": "array"},
+        "openMilestones": {"type": "array"}, "openPullRequests": {"type": "array"},
+        "recentlyMergedPullRequests": {"type": "array"}
+      }
+    },
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["repositoryFiles", "githubData", "collaborationContract"], "properties": {"repositoryFiles": {"const": "repository-evidence.dx.txt"}, "githubData": {"const": "github-evidence.json"}, "collaborationContract": {"const": "collaboration-contract.dx.txt"}}},
+    "requestedOutcome": {"type": "object", "additionalProperties": false, "required": ["mode", "maximumConcurrentSelections"], "properties": {"mode": {"const": "SELECT_OR_PREPARE_NEXT_WORK"}, "maximumConcurrentSelections": {"const": 1}}}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/chat-start-manifest.schema.json",
+  "title": "Chat Start Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageType", "repository", "evidenceHead", "files"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "packageType": {"enum": ["LEAD_CHAT_START", "SENIOR_CHAT_START"]},
+    "repository": {"type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$"},
+    "evidenceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "decision": {"type": "string"},
+    "files": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "allOf": [{"if": {"properties": {"packageType": {"const": "LEAD_CHAT_START"}}}, "then": {"required": ["files"]}}, {"if": {"properties": {"packageType": {"const": "SENIOR_CHAT_START"}}}, "then": {"required": ["decision"]}}]
+}

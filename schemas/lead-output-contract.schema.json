@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/lead-output-contract.schema.json",
+  "title": "Lead Output Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requiredFirstHeading", "decisions", "returnPackage", "implementationFiles", "planningFiles"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "requiredFirstHeading": {"const": "LEAD DECISION"},
+    "decisions": {"type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true},
+    "returnPackage": {"const": "lead-selection.dx.txt"},
+    "implementationFiles": {"type": "array", "minItems": 5, "uniqueItems": true},
+    "planningFiles": {"type": "array", "minItems": 3, "uniqueItems": true}
+  }
+}

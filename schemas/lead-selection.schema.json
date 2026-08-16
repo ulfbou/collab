@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/lead-selection.schema.json",
+  "title": "Lead Selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "decision", "repository", "evidenceHead", "summary", "nextConversation", "details"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "decision": {"enum": ["START_EXISTING_ISSUE", "REFINE_EXISTING_ISSUE", "CREATE_WORK_ITEM", "REPAIR_PLANNING_STRUCTURE", "USER_DECISION_REQUIRED"]},
+    "repository": {"type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$"},
+    "evidenceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "summary": {"type": "string", "minLength": 1},
+    "nextConversation": {"enum": ["SENIOR", "LEAD", "NONE"]},
+    "details": {"type": "object"}
+  }
+}
