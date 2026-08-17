@@ -72,7 +72,13 @@ collab_profile_load() {
   esac
 }
 
-_json_array() { printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]'; }
+_json_array() {
+  if (($# == 0)); then
+    printf '[]'
+  else
+    printf '%s\n' "$@" | jq -Rsc 'split("\n")[:-1]'
+  fi
+}
 _bool_json() { [[ $1 == 1 || $1 == true ]] && printf true || printf false; }
 
 collab_profile_save() {

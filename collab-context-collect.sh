@@ -97,6 +97,8 @@ ROLE=""
 ISSUE=""
 EXPECTED_REPO=""
 OUT=""
+ROLE_EXPLICIT=0
+OUT_EXPLICIT=0
 MAX_FILE_BYTES=262144
 RECENT_COMMITS=20
 RECENT_CLOSED=20
@@ -111,13 +113,15 @@ CONSUMER_INCLUDES=()
 
 # Explicit command-line values override repository-local remembered values.
 collab_profile_load context
+PROFILE_ROLE=$ROLE
+PROFILE_OUT=$OUT
 
 while (($#)); do
   case "$1" in
-    --role) require_value "$@"; ROLE=$2; shift 2 ;;
+    --role) require_value "$@"; ROLE=$2; ROLE_EXPLICIT=1; shift 2 ;;
     --issue) require_value "$@"; ISSUE=$2; shift 2 ;;
     --repo) require_value "$@"; EXPECTED_REPO=$2; shift 2 ;;
-    --out) require_value "$@"; OUT=$2; shift 2 ;;
+    --out) require_value "$@"; OUT=$2; OUT_EXPLICIT=1; shift 2 ;;
     --include) require_value "$@"; INCLUDES+=("$2"); shift 2 ;;
     --exclude) require_value "$@"; EXCLUDES+=("${2%/}"); shift 2 ;;
     --max-file-bytes) require_value "$@"; MAX_FILE_BYTES=$2; shift 2 ;;
@@ -135,6 +139,7 @@ while (($#)); do
   esac
 done
 
+((ROLE_EXPLICIT == 1)) || die '--role is required'
 [[ $ROLE == lead || $ROLE == senior ]] || die '--role must be lead or senior'
 [[ -z $ISSUE ]] || is_uint "$ISSUE" || die '--issue must be numeric'
 is_uint "$MAX_FILE_BYTES" || die '--max-file-bytes must be a non-negative integer'
@@ -148,8 +153,17 @@ require_cmd sha256sum
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || die 'not inside a Git repository'
 cd "$ROOT"
 
-if [[ -z $OUT ]]; then
-  OUT=".dx/${ROLE}-context.md"
+if ((OUT_EXPLICIT == 0)); then
+  if [[ $ROLE != "$PROFILE_ROLE" || -z $PROFILE_OUT ]]; then
+    OUT=".dx/${ROLE}-context.md"
+  else
+    OUT=$PROFILE_OUT
+  fi
+fi
+
+if ((OUT_EXPLICIT == 0)) && [[ $OUT == .dx/lead-context.md || $OUT == .dx/senior-context.md ]]; then
+  expected_default=".dx/${ROLE}-context.md"
+  [[ $OUT == "$expected_default" ]] || die "context profile role/output mismatch: role $ROLE cannot use $OUT"
 fi
 mkdir -p "$(dirname "$OUT")"
 OUT_ABS=$(python3 - "$OUT" <<'PY'
