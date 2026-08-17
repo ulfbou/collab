@@ -3,7 +3,7 @@ set -Eeuo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/tools" "$TMP/bin"
-cp "$HERE/collab-pr-finalize.sh" "$HERE/lib-common.sh" "$HERE/collab-state.py" "$TMP/tools/"
+cp "$HERE/collab-pr-finalize.sh" "$HERE/lib-common.sh" "$TMP/tools/"
 cat > "$TMP/tools/collab-work-verify.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'verify\n' >> "$CALL_LOG"
@@ -12,11 +12,24 @@ cat > "$TMP/tools/collab-repo-verify.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'repo-verify\n' >> "$CALL_LOG"
 EOF
-chmod +x "$TMP/tools/"*.sh "$TMP/tools/collab-state.py"
-cd "$TMP"; git init -q; git config user.name Test; git config user.email test@example.invalid; git remote add origin https://github.com/example/finalize.git
+chmod +x "$TMP/tools/"*.sh
+cat >> "$TMP/tools/lib-common.sh" <<'EOF'
+
+# Test-only state boundary. These PR boundary tests validate command ordering and
+# mutation boundaries, not persistent collaboration profile semantics.
+collab_state() {
+  case "${1:-}" in
+    load) printf '{}\n' ;;
+    save|clear|record) return 0 ;;
+    run-id) printf '20260817T000000.000000000Z-1-00000000\n' ;;
+    *) return 1 ;;
+  esac
+}
+EOF
+cd "$TMP"; git init -q; printf "/bin/\n/tools/\n" >> .git/info/exclude; git config user.name Test; git config user.email test@example.invalid; git remote add origin https://github.com/example/finalize.git
 printf 'base\n' > file; git add file; git commit -qm init; git branch -M main; git switch -qc test/finalize
 head=$(git rev-parse HEAD); mkdir -p .git/refs/remotes/origin; printf 'ref: refs/remotes/origin/main\n' > .git/refs/remotes/origin/HEAD
-export CALL_LOG="$TMP/calls.log" HEAD_OID="$head"
+export CALL_LOG="$TMP/.git/calls.log" HEAD_OID="$head"
 cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 printf 'gh %s\n' "$*" >> "$CALL_LOG"
