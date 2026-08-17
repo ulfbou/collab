@@ -11,7 +11,7 @@ mapfile -t assignees < <(jq -r '.assignees[]?'<<<"$p");((${#assignees[@]}))||ass
 a_seen=0;l_seen=0;r_seen=0;t_seen=0
 while (($#));do case "$1" in
  --issue) shift;issue=${1:?};;--title) shift;title=${1:?};;--body) shift;body=${1:?};;--body-file) shift;body_file=${1:?};;
- --assignee) shift;((a_seen++))||assignees=();assignees+=("$1");;--no-assignee) a_seen=1;assignees=();;
+ --assignee) shift;((a_seen++))||assignees=("@me");assignees+=("$1");;--no-assignee) a_seen=1;assignees=();;
  --label) shift;((l_seen++))||labels=();labels+=("$1");;--clear-labels) l_seen=1;labels=();;
  --reviewer) shift;((r_seen++))||reviewers=();reviewers+=("$1");;--clear-reviewers) r_seen=1;reviewers=();;
  --team-reviewer) shift;((t_seen++))||teams=();teams+=("$1");;--clear-team-reviewers) t_seen=1;teams=();;

@@ -196,6 +196,9 @@ def validate_values(kind: str, values: object) -> dict:
             raise Error(f"unknown {kind} profile field: {key}")
         if expected is list:
             validate_string_list(value, f"{kind}.{key}")
+            if kind == "context" and key in {"includes", "excludes", "consumerIncludes"}:
+                if any(not item for item in value):
+                    raise Error(f"context.{key} must not contain empty paths")
         elif expected is int:
             if not isinstance(value, int) or isinstance(value, bool):
                 raise Error(f"{kind}.{key} must be an integer")
