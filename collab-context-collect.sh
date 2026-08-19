@@ -53,22 +53,6 @@ Examples:
     --include docs \
     --include Verdant.slnx \
     --out .dx/lead-context.md
-
-  collab-context-collect.sh \
-    --role senior \
-    --issue 10 \
-    --delivery-brief .dx/issue-10-delivery-brief.md \
-    --include Verdant.slnx \
-    --include Directory.Build.props \
-    --include src/Verdant.Core \
-    --include src/Verdant.Replay \
-    --include tests/Verdant.Core.Tests \
-    --include tests/Verdant.ConformanceFixtures \
-    --consumer-root ../moldfirstbloom \
-    --consumer-include Mold.slnx \
-    --consumer-include src/Mold.Engine \
-    --consumer-include tests/Mold.Engine.Tests \
-    --out .dx/senior-context.md
 USAGE
 }
 
@@ -166,12 +150,18 @@ if ((OUT_EXPLICIT == 0)) && [[ $OUT == .dx/lead-context.md || $OUT == .dx/senior
   [[ $OUT == "$expected_default" ]] || die "context profile role/output mismatch: role $ROLE cannot use $OUT"
 fi
 mkdir -p "$(dirname "$OUT")"
+
+# Atomic/Symlink Safety Block (Issue 10)
 OUT_ABS=$(python3 - "$OUT" <<'PY'
 from pathlib import Path
 import sys
-print(Path(sys.argv[1]).resolve())
+p = Path(sys.argv[1])
+if p.is_symlink():
+    sys.exit(22)
+print(p.resolve())
 PY
-)
+) || die "unsafe output path: $OUT is a symlink"
+
 TMP=$(mktemp "${OUT_ABS}.tmp.XXXXXX")
 trap 'rm -f "$TMP"' EXIT
 
@@ -271,9 +261,10 @@ for raw in items:
     if not raw:
         continue
     value = raw.decode("utf-8", "strict")
-    if value not in seen:
-        seen.add(value)
-        print(value)'
+    seen.add(value)
+# Deterministic Collection (Issue 10)
+for value in sorted(seen):
+    print(value)'
 }
 
 emit_file() {
@@ -313,13 +304,19 @@ emit_file() {
 }
 
 emit_json_section() {
-  local heading=$1
-  shift
+  local heading=$1 sort_key=$2
+  shift 2
   printf '## %s\n\n' "$heading"
   if ((GITHUB_AVAILABLE)); then
     printf '````json\n'
-    if ! "$@"; then
+    if ! out=$("$@"); then
       printf '{"error":"GitHub query failed"}\n'
+    else
+      if [[ -n $sort_key ]]; then
+        printf '%s\n' "$out" | jq "sort_by($sort_key)" || printf '%s\n' "$out"
+      else
+        printf '%s\n' "$out"
+      fi
     fi
     printf '````\n\n'
   else
@@ -355,7 +352,7 @@ emit_json_section() {
 
   printf '## Tracked Repository Tree\n\n'
   printf '````text\n'
-  git ls-files
+  git ls-files | sort
   printf '````\n\n'
 
   if [[ -n $DELIVERY_BRIEF ]]; then
@@ -371,40 +368,40 @@ emit_json_section() {
   fi
 
   if ((WITH_GITHUB)); then
-    emit_json_section 'GitHub Repository Metadata' \
+    emit_json_section 'GitHub Repository Metadata' '' \
       gh repo view "$REPO" --json nameWithOwner,description,url,defaultBranchRef,isPrivate,visibility
 
     if [[ -n $ISSUE ]]; then
-      emit_json_section "Primary Issue #$ISSUE" \
+      emit_json_section "Primary Issue #$ISSUE" '' \
         gh issue view "$ISSUE" --repo "$REPO" \
           --json number,title,body,state,labels,milestone,assignees,author,createdAt,updatedAt,closedAt,url
-      emit_json_section "Primary Issue #$ISSUE Comments" \
+      emit_json_section "Primary Issue #$ISSUE Comments" '.id' \
         gh api --paginate "repos/$REPO/issues/$ISSUE/comments?per_page=100"
     fi
 
     if [[ $ROLE == lead ]]; then
       if ((ALL_OPEN_ISSUE_BODIES)); then
-        emit_json_section 'Open Issues' \
+        emit_json_section 'Open Issues' '.number' \
           gh issue list --repo "$REPO" --state open --limit 100 \
             --json number,title,body,state,labels,milestone,assignees,author,createdAt,updatedAt,url
       else
-        emit_json_section 'Open Issues' \
+        emit_json_section 'Open Issues' '.number' \
           gh issue list --repo "$REPO" --state open --limit 100 \
             --json number,title,state,labels,milestone,assignees,author,createdAt,updatedAt,url
       fi
-      emit_json_section 'Recently Closed Issues' \
+      emit_json_section 'Recently Closed Issues' '.number' \
         gh issue list --repo "$REPO" --state closed --limit "$RECENT_CLOSED" \
           --json number,title,state,labels,milestone,assignees,author,closedAt,url
-      emit_json_section 'Open Pull Requests' \
+      emit_json_section 'Open Pull Requests' '.number' \
         gh pr list --repo "$REPO" --state open --limit 100 \
           --json number,title,body,state,isDraft,baseRefName,headRefName,headRefOid,labels,milestone,assignees,author,mergeable,statusCheckRollup,createdAt,updatedAt,url
-      emit_json_section 'Recently Merged Pull Requests' \
+      emit_json_section 'Recently Merged Pull Requests' '.number' \
         gh pr list --repo "$REPO" --state merged --limit "$RECENT_CLOSED" \
           --json number,title,body,baseRefName,headRefName,headRefOid,mergeCommit,mergedAt,labels,milestone,author,url
-      emit_json_section 'Labels' gh label list --repo "$REPO" --limit 100 --json name,color,description
-      emit_json_section 'Milestones' gh api --paginate "repos/$REPO/milestones?state=all&per_page=100"
+      emit_json_section 'Labels' '.name' gh label list --repo "$REPO" --limit 100 --json name,color,description
+      emit_json_section 'Milestones' '.title?' gh api --paginate "repos/$REPO/milestones?state=all&per_page=100"
     else
-      emit_json_section 'Open Pull Requests' \
+      emit_json_section 'Open Pull Requests' '.number' \
         gh pr list --repo "$REPO" --state open --limit 100 \
           --json number,title,state,isDraft,baseRefName,headRefName,headRefOid,labels,milestone,mergeable,statusCheckRollup,url
     fi

@@ -113,7 +113,11 @@ def collect_git(root,repo,github,recent_closed,recent_commits=20,relationships=N
     default=run('git','symbolic-ref','--quiet','--short','refs/remotes/origin/HEAD',cwd=root,ok=(0,1)).strip()
     default=default.removeprefix('origin/') or current
     status=run('git','status','--porcelain=v1','--untracked-files=all',cwd=root)
+
+    # Deterministic file sorting (Issue 10)
     tracked=run('git','ls-files','-z',cwd=root).split('\0'); tracked=[x for x in tracked if x]
+    tracked.sort()
+
     if not tracked: raise Error('repository has no tracked files; add and commit the tool sources first')
     state={"schemaVersion":"1.0","generatedAt":dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00','Z'),"repository":{"nameWithOwner":repo,"defaultBranch":default,"currentBranch":current,"head":head,"workingTree":"CLEAN" if not status else "DIRTY"},"planning":{"githubAvailable":github,"openIssues":[],"openMilestones":[],"openPullRequests":[],"recentlyMergedPullRequests":[]},"evidence":{"repositoryFiles":"repository-evidence.dx.txt","githubData":"github-evidence.json","collaborationContract":"collaboration-contract.dx.txt"},"relationships":relationships or {"providers":[],"consumers":[]},"recentCommits":run('git','log','-n',str(recent_commits),'--format=%H%x09%cI%x09%s',cwd=root).splitlines(),"repositoryTree":tracked,"requestedOutcome":{"mode":"SELECT_OR_PREPARE_NEXT_WORK","maximumConcurrentSelections":1}}
     ghdata={"repository":repo,"available":github,"errors":[]}
@@ -126,7 +130,17 @@ def collect_git(root,repo,github,recent_closed,recent_commits=20,relationships=N
           'labels':['gh','label','list','--repo',repo,'--limit','100','--json','name,color,description'],
           'milestones':['gh','api','--paginate',f'repos/{repo}/milestones?state=open&per_page=100']}
         for k,q in queries.items():
-            try: ghdata[k]=json.loads(run(*q,cwd=root))
+            try:
+                res = json.loads(run(*q,cwd=root))
+                # Deterministic GitHub data sorting (Issue 10)
+                if isinstance(res, list):
+                    if k in ('openIssues', 'openPullRequests', 'recentlyMergedPullRequests'):
+                        res.sort(key=lambda x: x.get('number', 0))
+                    elif k == 'labels':
+                        res.sort(key=lambda x: x.get('name', ''))
+                    elif k == 'milestones':
+                        res.sort(key=lambda x: x.get('title', ''))
+                ghdata[k] = res
             except Exception as e: ghdata['errors'].append({"section":k,"error":str(e)})
         state['planning']['openIssues']=ghdata.get('openIssues',[])
         state['planning']['openMilestones']=ghdata.get('milestones',[])
@@ -325,4 +339,5 @@ def main():
         else: accept(args)
     except Error as e: print(f'ERROR: {e}',file=sys.stderr); return 1
     return 0
+
 if __name__=='__main__': raise SystemExit(main())
