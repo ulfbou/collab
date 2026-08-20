@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
 cp "$HERE/collab-state.py" "$TMP/"
-cd "$TMP"; git init -q; git config user.name Test; git config user.email test@example.invalid; git remote add origin https://github.com/example/security.git
-printf 'x\n' > tracked; git add tracked; git commit -qm init
+cd "$TMP"
+
+git init -q
+git config user.name Test
+git config user.email test@example.invalid
+git remote add origin https://github.com/example/profile-security.git
+
+git rev-parse --is-inside-work-tree >/dev/null
+git remote get-url origin >/dev/null
+test -f collab-state.py
+
+printf 'x\n' > tracked
+git add tracked
+git commit -qm init
 pass(){ printf 'PASS: %s\n' "$1"; }
 python3 collab-state.py save session --json '{"branch":"test/security"}'
 profile=.dx/collab/profiles/session.json
