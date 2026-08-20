@@ -335,11 +335,31 @@ def _evidence_module():
     path=Path(__file__).with_name('collab-evidence.py')
     spec=importlib.util.spec_from_file_location('collab_evidence',path); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
 
-def collect_git(root,repo,github,recent_closed,recent_commits=20,relationships=None):
-    e=_evidence_module(); m=e.collect(root,repo,[],[],262144,recent_commits,github)
-    state=e.repository_state(m)
-    if relationships is not None: state['relationships']=relationships
-    return state,m['github'],m['git']['trackedTree']
+def collect_git(
+    root,
+    repo,
+    github,
+    recent_closed,
+    recent_commits=20,
+    relationships=None,
+):
+    evidence = _evidence_module()
+    model = evidence.collect(
+        root=root,
+        repo=repo,
+        includes=[],
+        excludes=[],
+        max_bytes=262144,
+        recent=recent_commits,
+        github=github,
+        relationships=relationships,
+        recent_closed=recent_closed,
+    )
+    return (
+        evidence.repository_state(model),
+        model["github"],
+        model["git"]["trackedTree"],
+    )
 
 def repo_evidence(root,tracked,max_bytes,excludes,includes=None):
     e=_evidence_module(); return e.dx_files(e.selected(Path(root),tracked,includes or [],excludes,max_bytes))
