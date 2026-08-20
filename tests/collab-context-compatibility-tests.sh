@@ -10,19 +10,16 @@ cd "$TMP"
 git init -q
 git config user.name Test
 git config user.email test@example.invalid
-git remote add origin https://github.com/example/context-compatibility.git
+git remote add origin https://github.com/ulfbou/mock-repo.git
 
-printf 'selected content\n' > selected.txt
-printf 'excluded content\n' > excluded.txt
-printf 'delivery instructions\n' > delivery-brief.md
+# Ensure LF line endings to avoid accidental binary classification
+printf 'selected content\n' | tr -d '\r' > selected.txt
+printf 'excluded content\n' | tr -d '\r' > excluded.txt
+printf 'delivery instructions\n' | tr -d '\r' > delivery-brief.md
 
 python3 - <<'PY'
 from pathlib import Path
-
-Path("oversized.txt").write_text(
-    "X" * 100 + "\n",
-    encoding="utf-8",
-)
+Path("oversized.txt").write_text("X" * 100 + "\n", encoding="utf-8")
 Path("binary.bin").write_bytes(b"\x00\x01\x02")
 Path("non-utf8.bin").write_bytes(b"\xff\xfe\xfd")
 PY
@@ -32,8 +29,7 @@ git commit -qm init
 git branch -M main
 
 mkdir -p .git/refs/remotes/origin
-printf 'ref: refs/remotes/origin/main\n' \
-  > .git/refs/remotes/origin/HEAD
+printf 'ref: refs/remotes/origin/main\n' > .git/refs/remotes/origin/HEAD
 
 pass() {
   printf 'PASS: %s\n' "$1"
@@ -64,6 +60,8 @@ pass 'direct repository-state export contains relationships'
 
 # The standalone report must preserve context-specific information and
 # complete selected-file evidence.
+# Increase max-file-bytes to 50 so selected.txt (17 bytes) is included,
+# while oversized.txt (101 bytes) is still omitted.
 bash "$HERE/collab-context-collect.sh" \
   --role senior \
   --issue 24 \
@@ -74,7 +72,7 @@ bash "$HERE/collab-context-collect.sh" \
   --include non-utf8.bin \
   --include missing.txt \
   --exclude excluded.txt \
-  --max-file-bytes 10 \
+  --max-file-bytes 50 \
   --recent-commits 1 \
   --recent-closed 2 \
   --delivery-brief delivery-brief.md \
