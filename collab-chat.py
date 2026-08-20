@@ -329,6 +329,21 @@ def accept(args):
     else:
         print('=== USER DECISION REQUIRED ==='); print(selection['details']['question']); print('Recommendation: '+selection['details']['recommendation'])
 
+# Issue 10 compatibility adapters: all production collection belongs to collab-evidence.py.
+def _evidence_module():
+    import importlib.util
+    path=Path(__file__).with_name('collab-evidence.py')
+    spec=importlib.util.spec_from_file_location('collab_evidence',path); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+
+def collect_git(root,repo,github,recent_closed,recent_commits=20,relationships=None):
+    e=_evidence_module(); m=e.collect(root,repo,[],[],262144,recent_commits,github)
+    state=e.repository_state(m)
+    if relationships is not None: state['relationships']=relationships
+    return state,m['github'],m['git']['trackedTree']
+
+def repo_evidence(root,tracked,max_bytes,excludes,includes=None):
+    e=_evidence_module(); return e.dx_files(e.selected(Path(root),tracked,includes or [],excludes,max_bytes))
+
 def main():
     p=argparse.ArgumentParser(); sub=p.add_subparsers(dest='cmd',required=True)
     s=sub.add_parser('start'); s.add_argument('--repo'); s.add_argument('--out',default='.dx/collab/lead-chat-start.dx.txt'); s.add_argument('--max-file-bytes',type=int,default=262144); s.add_argument('--recent-closed',type=int,default=20); s.add_argument('--recent-commits',type=int,default=20); s.add_argument('--consumer-root'); s.add_argument('--include',action='append',default=[]); s.add_argument('--exclude',action='append',default=['.dx']); s.add_argument('--no-github',action='store_true'); s.add_argument('--dry-run',action='store_true')

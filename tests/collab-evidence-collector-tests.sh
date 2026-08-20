@@ -1,90 +1,28 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-cp "$HERE/collab-evidence.py" "$TMP/"
-chmod +x "$TMP/collab-evidence.py"
-cd "$TMP"; git init -q; git config user.name Test; git config user.email test@example.invalid; git remote add origin https://github.com/example/evidence.git
-printf 'content\n' > file1.txt
-printf 'binary\x00\x01\x02' > binary.bin
-printf 'large content\n' > large.txt
-git add .
-git commit -qm init
-mkdir -p out
-
-# ---------------------------------------------------------------------------
-# Test 1: GitHub Unavailable State
-# ---------------------------------------------------------------------------
-echo "Running Test: GitHub Unavailable"
-mkdir -p "$TMP/mock_bin_fail"
-cat << 'EOF' > "$TMP/mock_bin_fail/gh"
-#!/bin/bash
+H=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."&&pwd -P);T=$(mktemp -d);trap 'rm -rf "$T"' EXIT;cp "$H/collab-evidence.py" "$T/";cd "$T";git init -q;git config user.name T;git config user.email t@x;git remote add origin https://github.com/example/evidence.git;printf 'ok\n'>a.txt;printf '\0x'>binary.bin;printf '\377\376'>nonutf.bin;python3 - <<'PY'
+from pathlib import Path
+Path('large.txt').write_text('x'*100)
+PY
+git add .;git commit -qm init;mkdir out mock
+cat >mock/gh <<'SH'
+#!/usr/bin/env bash
 exit 1
-EOF
-chmod +x "$TMP/mock_bin_fail/gh"
-printf '@echo off\r\nexit /b 1\r\n' > "$TMP/mock_bin_fail/gh.bat"
-printf '@echo off\r\nexit /b 1\r\n' > "$TMP/mock_bin_fail/gh.cmd"
-export COLLAB_GH_BIN="$TMP/mock_bin_fail/gh"
-python3 collab-evidence.py export-json --root "$TMP" --out-dir "$TMP/out"
-if ! grep -q '"available": false' "$TMP/out/github-evidence.json"; then
-  echo "FAIL: Expected GitHub to be explicitly unavailable."
-  cat "$TMP/out/github-evidence.json"
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Test 2: Partial GitHub Query Failure
-# ---------------------------------------------------------------------------
-echo "Running Test: Partial GitHub Query Failure"
-mkdir -p "$TMP/mock_bin_partial"
-cat << 'EOF' > "$TMP/mock_bin_partial/gh"
-#!/bin/bash
-if [[ "$1" == "auth" ]]; then exit 0; fi
-if [[ "$1" == "pr" ]]; then echo "PR API Error" >&2; exit 1; fi
-echo "[]"
-EOF
-chmod +x "$TMP/mock_bin_partial/gh"
-printf '@echo off\r\nif "%%1"=="auth" exit /b 0\r\nif "%%1"=="pr" (\r\n  echo PR API Error 1>&2\r\n  exit /b 1\r\n)\r\necho []\r\nexit /b 0\r\n' > "$TMP/mock_bin_partial/gh.bat"
-printf '@echo off\r\nif "%%1"=="auth" exit /b 0\r\nif "%%1"=="pr" (\r\n  echo PR API Error 1>&2\r\n  exit /b 1\r\n)\r\necho []\r\nexit /b 0\r\n' > "$TMP/mock_bin_partial/gh.cmd"
-export COLLAB_GH_BIN="$TMP/mock_bin_partial/gh"
-python3 collab-evidence.py export-json --root "$TMP" --out-dir "$TMP/out"
-if ! grep -q '"openPullRequests": "failed"' "$TMP/out/github-evidence.json"; then
-  echo "FAIL: Expected openPullRequests to explicitly register a failed query status."
-  cat "$TMP/out/github-evidence.json"
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Test 3: File Omissions & Limits
-# ---------------------------------------------------------------------------
-echo "Running Test: File Omissions"
-python3 collab-evidence.py render-context \
-  --root "$TMP" \
-  --out "$TMP/out/context.md" \
-  --max-bytes 10 \
-  --include "file1.txt" \
-  --include "missing.txt" \
-  --include "binary.bin"
-python3 collab-evidence.py export-json --root "$TMP" --out-dir "$TMP/out" --include "binary.bin" --include "large.txt" --include "missing.txt"
-if ! grep -q '"status": "missing"' "$TMP/out/repository-facts.json"; then
-  echo "FAIL: Missing files not explicitly reported."
-  cat "$TMP/out/repository-facts.json"
-  exit 1
-fi
-if ! grep -q '"status": "omitted_binary"' "$TMP/out/repository-facts.json"; then
-  echo "FAIL: Binary files not identified and omitted."
-  cat "$TMP/out/repository-facts.json"
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Test 4: Atomic Writes & Symlink Safety
-# ---------------------------------------------------------------------------
-echo "Running Test: Symlink Rejection"
-ln -s "$TMP/out/dummy" "$TMP/out/symlink.md"
-if python3 collab-evidence.py render-context --root "$TMP" --out "$TMP/out/symlink.md" 2>/dev/null; then
-  echo "FAIL: Collector allowed writing context to an unsafe symlink."
-  exit 1
-fi
-
-echo "Collector Tests: PASS"
+SH
+chmod +x mock/gh;COLLAB_GH_BIN=$PWD/mock/gh python3 collab-evidence.py export-json --out-dir out;python3 - <<'PY'
+import json
+x=json.load(open('out/github-evidence.json'));assert x['available'] is False;assert all(v=='unavailable' for v in x['queryStatus'].values())
+PY
+cat >mock/gh <<'SH'
+#!/usr/bin/env bash
+[[ $1 == auth ]]&&exit 0
+[[ $1 == pr ]]&&{ echo failed >&2;exit 1; }
+printf '[]\n'
+SH
+chmod +x mock/gh;COLLAB_GH_BIN=$PWD/mock/gh python3 collab-evidence.py export-json --out-dir out --include a.txt --include binary.bin --include nonutf.bin --include large.txt --include missing --max-bytes 10
+python3 - <<'PY'
+import json
+x=json.load(open('out/github-evidence.json'));assert x['available'];assert x['queryStatus']['openIssues']=='ok';assert x['queryStatus']['openPullRequests']=='failed';assert 'openIssues' in x['data'] and 'openPullRequests' not in x['data']
+f=json.load(open('out/repository-facts.json'))['selectedFiles'];d={x['path']:x for x in f};assert d['missing']['status']=='missing';assert d['large.txt']['reason']=='oversized';assert d['binary.bin']['reason']=='binary';assert d['nonutf.bin']['reason']=='non-utf8';assert [x['path'] for x in f]==sorted(x['path'] for x in f)
+PY
+printf sentinel>out/target;ln -s target out/link;! python3 collab-evidence.py render-context --out out/link >/dev/null 2>&1;[[ $(cat out/target)==sentinel ]];! find out -name '*.tmp.*'|grep -q .;echo 'PASS: collector-tests'

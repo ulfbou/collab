@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+REPO=ulfbou/mock-repo; BASE=test-base
+verify_access(){ gh auth status >/dev/null;[[ $(gh repo view "$REPO" --json nameWithOwner --jq .nameWithOwner)=="$REPO" ]];[[ $(gh api "repos/$REPO" --jq .permissions.push)==true ]];gh api "repos/$REPO/git/ref/heads/$BASE" >/dev/null; }
+verify_access
+ensure_label(){ gh label list --repo "$REPO" --limit 100 --json name --jq ".[]|select(.name==\"$1\")|.name"|grep -Fxq "$1"||gh label create "$1" --repo "$REPO" --color "$2";};ensure_label collab-fixture-open 0e8a16;ensure_label collab-fixture-milestone 5319e7
+[[ $(gh issue list --repo "$REPO" --state open --limit 100 --json title --jq '.[]|select(.title=="[collab-fixture] Available issue")|.title') ]]||gh issue create --repo "$REPO" --title '[collab-fixture] Available issue' --body 'Permanent fixture issue used by Issue 10 integration tests.' >/dev/null
+[[ $(gh api "repos/$REPO/milestones?state=open" --jq '.[]|select(.title=="[collab-fixture] Milestone")|.title') ]]||gh api --method POST "repos/$REPO/milestones" -f title='[collab-fixture] Milestone' -f description='Issue 10 deterministic fixture milestone' -f due_on='2030-01-01T00:00:00Z' >/dev/null
+[[ $(gh pr list --repo "$REPO" --state merged --limit 100 --json title --jq '.[]|select(.title=="[collab-fixture] Recently merged PR")|.title') ]]&&exit 0
+T=$(mktemp -d);B=fixture/merged-pr;trap 'git -C "$T/repo" push origin --delete "$B" >/dev/null 2>&1||true;rm -rf "$T"' EXIT;gh repo clone "$REPO" "$T/repo";cd "$T/repo";git switch -C "$B" "origin/$BASE";printf 'merged fixture\n'>merged-fixture.txt;git add .;git -c user.name=collab-fixture -c user.email=fixture@example.invalid commit -m 'Add permanent merged fixture';git push -u origin "$B";u=$(gh pr create --repo "$REPO" --base "$BASE" --head "$B" --title '[collab-fixture] Recently merged PR' --body 'Permanent merged PR fixture for Issue 10.');gh pr merge "$u" --repo "$REPO" --merge --delete-branch

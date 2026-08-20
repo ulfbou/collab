@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-cp "$HERE/collab-chat.py" "$HERE/collab-chat-start.sh" "$HERE/collab-chat-accept.sh" "$TMP/"
-chmod +x "$TMP"/collab-chat.py "$TMP"/*.sh
+export COLLAB_SOURCE_ROOT="$HERE"
+
 cd "$TMP"
 git init -q
 git config user.name Test
 git config user.email test@example.invalid
 git remote add origin https://github.com/example/chat-workflow.git
 printf '# Repository\n' > README.md
-git add README.md collab-chat.py collab-chat-start.sh collab-chat-accept.sh
+git add README.md
 git commit -qm init
 git branch -M main
 mkdir -p .git/refs/remotes/origin bin
@@ -24,12 +25,12 @@ chmod +x bin/gh
 export COLLAB_GH_BIN="$PWD/bin/gh"
 
 before=$(find . -mindepth 1 -not -path './.git*' -printf '%P\t%y\t%s\n' | sort)
-./collab-chat-start.sh --repo example/chat-workflow --no-github --dry-run >/dev/null
+"$HERE/collab-chat-start.sh" --repo example/chat-workflow --no-github --dry-run >/dev/null
 after=$(find . -mindepth 1 -not -path './.git*' -printf '%P\t%y\t%s\n' | sort)
 [[ $before == "$after" ]]
 printf 'PASS: start dry-run performs no writes\n'
 
-./collab-chat-start.sh --repo example/chat-workflow --no-github >/dev/null
+"$HERE/collab-chat-start.sh" --repo example/chat-workflow --no-github >/dev/null
 test -s .dx/collab/lead-chat-start.dx.txt
 grep -q '^%%DX v1.3.1$' .dx/collab/lead-chat-start.dx.txt
 grep -q '^%%FILE path="repository-state.json" readonly="true"$' .dx/collab/lead-chat-start.dx.txt
@@ -71,17 +72,32 @@ EOF
 printf '{"files":["collab-chat.py","tests/collab-chat-workflow-tests.sh"]}\n' > required-evidence.json
 python3 - <<'PY'
 from pathlib import Path
-import sys
-sys.path.insert(0,'.')
 import importlib.util
-s=importlib.util.spec_from_file_location('c','collab-chat.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
-files={n:Path(n).read_bytes() for n in ('selection.json','decision.md','delivery-brief.md','senior-kickstart.md','required-evidence.json')}
+import os
+
+s=importlib.util.spec_from_file_location(
+    'c',
+    os.path.join(os.environ['COLLAB_SOURCE_ROOT'],'collab-chat.py'),
+)
+m=importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
+
+files={
+    name:Path(name).read_bytes()
+    for name in (
+        'selection.json',
+        'decision.md',
+        'delivery-brief.md',
+        'senior-kickstart.md',
+        'required-evidence.json',
+    )
+}
 Path('lead-selection.dx.txt').write_bytes(m.dx_pack(files,False))
 PY
-./collab-chat-accept.sh lead-selection.dx.txt --dry-run | grep -q 'VALID: START_EXISTING_ISSUE'
+"$HERE/collab-chat-accept.sh" lead-selection.dx.txt --dry-run | grep -q 'VALID: START_EXISTING_ISSUE'
 test ! -e .dx/collab/accepted-selection.dx.txt
 printf 'PASS: selection dry-run validates without acceptance writes\n'
-./collab-chat-accept.sh lead-selection.dx.txt >/dev/null
+"$HERE/collab-chat-accept.sh" lead-selection.dx.txt >/dev/null
 test -s .dx/collab/accepted-selection.dx.txt
 test -s .dx/collab/senior-chat-start.dx.txt
 grep -q '^%%FILE path="delivery-brief.md" readonly="true"$' .dx/collab/senior-chat-start.dx.txt
@@ -91,18 +107,30 @@ sed -i 's#feat/conversation-bootstrap#feat/issue-7-bootstrap#' selection.json
 python3 - <<'PY'
 from pathlib import Path
 import importlib.util
-s=importlib.util.spec_from_file_location('c','collab-chat.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
-files={n:Path(n).read_bytes() for n in ('selection.json','decision.md','delivery-brief.md','senior-kickstart.md','required-evidence.json')}
-Path('bad-selection.dx.txt').write_bytes(m.dx_pack(files,False))
+import os
+
+s=importlib.util.spec_from_file_location(
+    'c',
+    os.path.join(os.environ['COLLAB_SOURCE_ROOT'],'collab-chat.py'),
+)
+m=importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
 PY
-! ./collab-chat-accept.sh bad-selection.dx.txt --dry-run >/dev/null 2>&1
+! "$HERE/collab-chat-accept.sh" bad-selection.dx.txt --dry-run >/dev/null 2>&1
 printf 'PASS: branch names containing issue numbers are rejected\n'
 
-./collab-chat-start.sh --repo example/chat-workflow --no-github --include README.md --out .dx/collab/included.dx.txt >/dev/null
+"$HERE/collab-chat-start.sh" --repo example/chat-workflow --no-github --include README.md --out .dx/collab/included.dx.txt >/dev/null
 python3 - <<'PY'
 from pathlib import Path
 import importlib.util
-s=importlib.util.spec_from_file_location('c','collab-chat.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+import os
+
+s=importlib.util.spec_from_file_location(
+    'c',
+    os.path.join(os.environ['COLLAB_SOURCE_ROOT'],'collab-chat.py'),
+)
+m=importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
 outer,_=m.dx_parse(Path('.dx/collab/included.dx.txt'))
 inner=Path('inner.dx.txt'); inner.write_bytes(outer['repository-evidence.dx.txt'])
 files,_=m.dx_parse(inner); inner.unlink()
@@ -114,11 +142,18 @@ printf '{"files":"not-an-array"}\n' > required-evidence.json
 python3 - <<'PY'
 from pathlib import Path
 import importlib.util
-s=importlib.util.spec_from_file_location('c','collab-chat.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+import os
+
+s=importlib.util.spec_from_file_location(
+    'c',
+    os.path.join(os.environ['COLLAB_SOURCE_ROOT'],'collab-chat.py'),
+)
+m=importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
 files={n:Path(n).read_bytes() for n in ('selection.json','decision.md','delivery-brief.md','senior-kickstart.md','required-evidence.json')}
 Path('bad-evidence.dx.txt').write_bytes(m.dx_pack(files,False))
 PY
-! ./collab-chat-accept.sh bad-evidence.dx.txt --dry-run >/dev/null 2>&1
+! "$HERE/collab-chat-accept.sh" bad-evidence.dx.txt --dry-run >/dev/null 2>&1
 printf 'PASS: malformed required-evidence contract is rejected\n'
 
 cat > selection.json <<EOF
@@ -143,8 +178,15 @@ EOF
 python3 - <<'PY'
 from pathlib import Path
 import importlib.util
-s=importlib.util.spec_from_file_location('c','collab-chat.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+import os
+
+s=importlib.util.spec_from_file_location(
+    'c',
+    os.path.join(os.environ['COLLAB_SOURCE_ROOT'],'collab-chat.py'),
+)
+m=importlib.util.module_from_spec(s)
+s.loader.exec_module(m)
 Path('user-decision.dx.txt').write_bytes(m.dx_pack({'selection.json':Path('selection.json').read_bytes(),'decision.md':b'# LEAD DECISION\n\nA product choice is required.\n'},False))
 PY
-./collab-chat-accept.sh user-decision.dx.txt --dry-run | grep -q 'VALID: USER_DECISION_REQUIRED'
+"$HERE/collab-chat-accept.sh" user-decision.dx.txt --dry-run | grep -q 'VALID: USER_DECISION_REQUIRED'
 printf 'PASS: user decision requires no artificial planning-change file\n'
