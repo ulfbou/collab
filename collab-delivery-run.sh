@@ -240,7 +240,10 @@ else
     "$TOOLS_DIR/collab-dx-inspect.sh" "$CARRIER_ABS" --file "$path" > "$expected"
     cmp -s -- "$expected" "$path" || { rm -f "$expected"; die "carrier payload differs from working tree during --skip-apply: $path"; }
     rm -f "$expected"
-  done < <("$TOOLS_DIR/collab-dx-inspect.sh" "$CARRIER_ABS" --list)
+      done < <(
+        "$TOOLS_DIR/collab-dx-inspect.sh" "$CARRIER_ABS" --list |
+          tr -d '\r'
+      )
   printf 'PASS: carrier payloads equal current working-tree files.\n' | tee "$LOG_DIR/carrier-application-equivalence.txt"
 fi
 

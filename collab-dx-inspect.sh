@@ -26,7 +26,7 @@ while i<len(lines):
   a=dict(attr.findall(s)); path=a.get('path');
   if not path: raise SystemExit(f'ERROR: FILE without path at physical line {i+1}')
   i+=1; payload=[]
-  while i<len(lines) and lines[i].rstrip('\r\n')!='%%ENDBLOCK': payload.append(lines[i]); i+=1
+  while i<len(lines) and lines[i].rstrip('\r\n')!='%%ENDBLOCK': payload.append(lines[i][4:]); i+=1
   if i==len(lines): raise SystemExit(f'ERROR: unterminated FILE block: {path}')
   raw=''.join(payload)
   if raw.endswith('\r\n'): raw=raw[:-2]
@@ -45,6 +45,6 @@ elif mode=='readonly':
   if a.get('readonly','false').lower()=='true': print(path)
 elif mode=='file':
  for path,a,raw in files:
-  if path==wanted: sys.stdout.write(raw); sys.exit(0)
+  if path==wanted: sys.stdout.buffer.write(raw.encode('utf-8') + (b'\n' if raw else b'')); sys.exit(0)
  raise SystemExit(f'ERROR: path not found: {wanted}')
 PY
