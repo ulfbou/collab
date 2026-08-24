@@ -105,6 +105,70 @@ def git_changed_paths(root:Path)->list[str]:
         out.append(safe_path(path))
     return sorted(set(out))
 
+
+def git_ignored_paths(path: Path, names: list[str]) -> set[str]:
+    if not names:
+        return set()
+
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return set()
+
+    if probe.returncode != 0:
+        return set()
+
+    repository_root = Path(probe.stdout.strip()).resolve()
+    repository_names: list[str] = []
+
+    for name in names:
+        absolute = (path / Path(*PurePosixPath(name).parts)).resolve()
+        try:
+            relative = absolute.relative_to(repository_root).as_posix()
+        except ValueError as exc:
+            raise DxError(
+                f"path is outside Git repository during .gitignore evaluation: {name}"
+            ) from exc
+        repository_names.append(relative)
+
+    payload = b"\0".join(
+        name.encode("utf-8", "strict")
+        for name in repository_names
+    ) + b"\0"
+
+    result = subprocess.run(
+        ["git", "check-ignore", "--stdin", "-z", "--no-index"],
+        cwd=repository_root,
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    if result.returncode not in (0, 1):
+        message = result.stderr.decode("utf-8", "replace").strip()
+        suffix = f": {message}" if message else ""
+        raise DxError(f"failed to evaluate .gitignore{suffix}")
+
+    ignored_repository_paths = {
+        safe_path(item.decode("utf-8", "strict"))
+        for item in result.stdout.split(b"\0")
+        if item
+    }
+
+    return {
+        name
+        for name, repository_name in zip(names, repository_names)
+        if repository_name in ignored_repository_paths
+    }
+
 def collect_paths(root:Path,source:Path,explicit:list[str],from_git:bool,includes,excludes,output:Path|None,device:bool)->list[str]:
     if explicit and from_git: raise DxError('--path and --from-git are mutually exclusive')
     if from_git: names=git_changed_paths(root)
@@ -123,6 +187,12 @@ def collect_paths(root:Path,source:Path,explicit:list[str],from_git:bool,include
         actual=(root/rel) if (from_git or explicit) else (source/rel)
         if output_resolved and actual.resolve()==output_resolved: continue
         if selected(rel,includes,excludes): result.add(rel)
+
+    if device:
+        result.difference_update(
+            git_ignored_paths(root, sorted(result))
+        )
+
     return sorted(result)
 
 def next_device_output(force:bool)->Path:
@@ -157,9 +227,36 @@ def write_atomic(output:Path,force:bool,writer):
     try:
         with open(tmp,'w',encoding='utf-8',newline='\n') as h: writer(h); h.flush(); os.fsync(h.fileno())
         if not force:
-            try: os.link(tmp,output); os.unlink(tmp)
-            except FileExistsError: raise DxError(f"output already exists; use --force to replace it: {output}")
-        else: os.replace(tmp,output)
+            lock = output.with_name(output.name + ".lock")
+            lock_fd = None
+            try:
+                try:
+                    lock_fd = os.open(
+                        lock,
+                        os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                        0o600,
+                    )
+                except FileExistsError:
+                    raise DxError(
+                        f"output is currently being created: {output}"
+                    )
+
+                if output.exists():
+                    raise DxError(
+                        "output already exists; use --force to replace it: "
+                        f"{output}"
+                    )
+
+                os.replace(tmp, output)
+            finally:
+                if lock_fd is not None:
+                    os.close(lock_fd)
+                try:
+                    os.unlink(lock)
+                except FileNotFoundError:
+                    pass
+        else:
+            os.replace(tmp,output)
     finally:
         try: os.unlink(tmp)
         except FileNotFoundError: pass
