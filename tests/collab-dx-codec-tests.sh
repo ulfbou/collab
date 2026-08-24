@@ -37,9 +37,9 @@ printf 'ignored\n' > "$TMP/device/.dx/history.txt"
 printf '\377\376' > "$TMP/device/binary.bin"
 (
   cd "$TMP/device"
-  HOME="$TMP/home" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-1.out" 2> "$TMP/device-pack-1.err"
-  HOME="$TMP/home" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-2.out" 2> "$TMP/device-pack-2.err"
-  HOME="$TMP/home" python3 "$ROOT/dx.py" pack --force > "$TMP/device-force.out" 2> "$TMP/device-force.err"
+  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-1.out" 2> "$TMP/device-pack-1.err"
+  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-2.out" 2> "$TMP/device-pack-2.err"
+  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack --force > "$TMP/device-force.out" 2> "$TMP/device-force.err"
 )
 [[ -f "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt" ]]
 [[ -f "$TMP/home/storage/downloads/DX/dx-carrier-2.dx.txt" ]]

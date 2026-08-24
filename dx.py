@@ -8,6 +8,10 @@ from typing import TextIO
 
 VERSION = "v1.3.1"
 DEVICE_DIR = Path("~/storage/downloads/DX").expanduser()
+
+def device_output_dir() -> Path:
+    override = os.environ.get("DX_DEVICE_DIR")
+    return Path(override).expanduser() if override else DEVICE_DIR
 ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 NUMBERED_RE = re.compile(r'^dx-carrier-(\d+)\.dx\.txt$')
 
@@ -196,20 +200,23 @@ def collect_paths(root:Path,source:Path,explicit:list[str],from_git:bool,include
     return sorted(result)
 
 def next_device_output(force:bool)->Path:
-    DEVICE_DIR.mkdir(parents=True,exist_ok=True)
-    if force:return DEVICE_DIR/'dx-carrier.dx.txt'
+    directory=device_output_dir()
+    directory.mkdir(parents=True,exist_ok=True)
+    if force:return directory/'dx-carrier.dx.txt'
     highest=0
-    for p in DEVICE_DIR.iterdir():
+    for p in directory.iterdir():
         m=NUMBERED_RE.fullmatch(p.name)
         if m: highest=max(highest,int(m.group(1)))
-    return DEVICE_DIR/f'dx-carrier-{highest+1}.dx.txt'
+    return directory/f'dx-carrier-{highest+1}.dx.txt'
 
 def encode_entry(h,path,data,readonly,include_binary,omit_binary):
     attrs=[f'path="{safe_path(path)}"']
     if readonly: attrs.append('readonly="true"')
     if data.startswith(b'\xef\xbb\xbf'): raise DxError(f'UTF-8 BOM is not permitted: {path}')
-    try:text=data.decode('utf-8')
-    except UnicodeDecodeError:
+    binary = b'\0' in data
+    try:text=data.decode('utf-8') if not binary else None
+    except UnicodeDecodeError:text=None
+    if text is None:
         if not include_binary:
             if omit_binary: print(f"Omitted non-UTF-8: {path}",file=sys.stderr); return False
             raise DxError(f"non-UTF-8 file requires --include-non-utf8 or --omit-non-utf8: {path}")
