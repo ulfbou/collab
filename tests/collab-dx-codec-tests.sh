@@ -28,3 +28,32 @@ cmp "$TMP/src/nested.dx.txt" "$TMP/out/nested.dx.txt"
 python3 "$ROOT/dx.py" inspect "$TMP/all.dx.txt" --compare-root "$TMP/out"
 python3 "$ROOT/dx.py" inspect "$TMP/all.dx.txt" --hashes | grep -q "$(sha256sum "$TMP/src/blob.bin" | awk '{print $1}') blob.bin"
 printf 'PASS: canonical DX codec\n'
+
+# Device defaults, naming, overwrite, help, and binary omission.
+mkdir -p "$TMP/home/storage/downloads/DX" "$TMP/device/.git" "$TMP/device/.dx"
+printf 'one\r\ntwo\r\n\r\n' > "$TMP/device/text.txt"
+printf 'ignored\n' > "$TMP/device/.git/config"
+printf 'ignored\n' > "$TMP/device/.dx/history.txt"
+printf '\377\376' > "$TMP/device/binary.bin"
+(
+  cd "$TMP/device"
+  HOME="$TMP/home" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-1.out" 2> "$TMP/device-pack-1.err"
+  HOME="$TMP/home" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-2.out" 2> "$TMP/device-pack-2.err"
+  HOME="$TMP/home" python3 "$ROOT/dx.py" pack --force > "$TMP/device-force.out" 2> "$TMP/device-force.err"
+)
+[[ -f "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt" ]]
+[[ -f "$TMP/home/storage/downloads/DX/dx-carrier-2.dx.txt" ]]
+[[ -f "$TMP/home/storage/downloads/DX/dx-carrier.dx.txt" ]]
+! grep -q '.git/config' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
+! grep -q '.dx/history.txt' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
+! grep -q 'binary.bin' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
+grep -q 'Omitted non-UTF-8: binary.bin' "$TMP/device-pack-1.err"
+python3 "$ROOT/dx.py" -h | grep -q 'DX v1.3.1 carrier utility'
+python3 "$ROOT/dx.py" pack -h >/dev/null
+python3 "$ROOT/dx.py" unpack -h >/dev/null
+python3 "$ROOT/dx.py" apply -h >/dev/null
+python3 "$ROOT/dx.py" inspect -h >/dev/null
+if python3 "$ROOT/dx.py" pack "$TMP/device" "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt" >/dev/null 2>&1; then
+  echo 'ERROR: explicit existing output was replaced without --force' >&2; exit 1
+fi
+printf 'PASS: device DX defaults and help\n'

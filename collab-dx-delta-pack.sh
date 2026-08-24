@@ -34,7 +34,7 @@ fi
 collab_profile_load delta
 OUTPUT_FILE=${OUTPUT_FILE:-${OUTPUT_FILE:-.dx/proposed-delivery.dx.txt}}
 mkdir -p "$(dirname "$OUTPUT_FILE")"
-args=(pack --out "$OUTPUT_FILE" --root "$root" --from-git)
+args=(pack --out "$OUTPUT_FILE" --root "$root" --from-git --force --quiet)
 for pattern in "${INCLUDES[@]}"; do args+=(--include "$pattern"); done
 for pattern in "${EXCLUDES[@]}"; do args+=(--exclude "$pattern"); done
 $INCLUDE_NON_UTF8 && args+=(--include-non-utf8)
