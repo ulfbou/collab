@@ -330,6 +330,37 @@ def api_pages(endpoint: str, *, fields: list[str], page_key: str,
     raise AppError(f"pagination safety limit reached for {endpoint}")
 
 
+def run_observation(repo: str, item: dict[str, Any]) -> RunObservation:
+    return RunObservation(
+        repository=repo,
+        run_id=int(item["id"]),
+        attempt=int(item.get("run_attempt") or 1),
+        run_number=int(item.get("run_number") or 0),
+        workflow_id=item.get("workflow_id"),
+        workflow=item.get("name") or "(unknown workflow)",
+        workflow_path=item.get("path") or "",
+        branch=item.get("head_branch") or "(unknown branch)",
+        event=item.get("event") or "",
+        commit=item.get("head_sha") or "",
+        title=item.get("display_title") or "",
+        actor=(item.get("actor") or {}).get("login") or "",
+        created_at=item.get("created_at") or "",
+        updated_at=item.get("updated_at") or "",
+        conclusion=item.get("conclusion") or "",
+        url=item.get("html_url") or "",
+    )
+
+
+def get_run(repo: str, run_id: int) -> RunObservation:
+    item = gh_json(["api", "--method", "GET", "-H", "X-GitHub-Api-Version: 2022-11-28",
+                    f"repos/{repo}/actions/runs/{run_id}"])
+    if not isinstance(item, dict) or int(item.get("id") or 0) != run_id:
+        raise AppError(f"unexpected API response for run {run_id}")
+    if item.get("status") != "completed":
+        raise AppError(f"run {run_id} is not completed (status: {item.get('status') or 'unknown'})")
+    return run_observation(repo, item)
+
+
 def list_runs(repo: str, since: dt.datetime, until: dt.datetime,
               conclusions: set[str]) -> list[RunObservation]:
     created = f"created={iso_utc(since)}..{iso_utc(until)}"
@@ -344,24 +375,7 @@ def list_runs(repo: str, since: dt.datetime, until: dt.datetime,
         stamp = parse_timestamp(created_at)
         if not since <= stamp <= until:
             continue
-        result.append(RunObservation(
-            repository=repo,
-            run_id=int(item["id"]),
-            attempt=int(item.get("run_attempt") or 1),
-            run_number=int(item.get("run_number") or 0),
-            workflow_id=item.get("workflow_id"),
-            workflow=item.get("name") or "(unknown workflow)",
-            workflow_path=item.get("path") or "",
-            branch=item.get("head_branch") or "(unknown branch)",
-            event=item.get("event") or "",
-            commit=item.get("head_sha") or "",
-            title=item.get("display_title") or "",
-            actor=(item.get("actor") or {}).get("login") or "",
-            created_at=created_at,
-            updated_at=item.get("updated_at") or "",
-            conclusion=conclusion,
-            url=item.get("html_url") or "",
-        ))
+        result.append(run_observation(repo, item))
     return sorted(result, key=lambda item: (item.created_at, item.repository, item.run_id), reverse=True)
 
 
@@ -1129,6 +1143,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", action="append", default=[], metavar="OWNER/REPO",
                         help="repository to inspect; repeatable; default is current repository")
+    parser.add_argument("--run-id", type=int,
+                        help="analyze exactly one completed GitHub Actions run")
     parser.add_argument("--include-submodules", action="store_true",
                         help="also inspect initialized submodule repositories when inferring")
     parser.add_argument("--days", type=float, default=7.0,
@@ -1154,6 +1170,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
     if args.days <= 0:
         parser.error("--days must be greater than zero")
+    if args.run_id is not None and args.run_id <= 0:
+        parser.error("--run-id must be a positive integer")
     if not 0 <= args.threshold <= 1:
         parser.error("--threshold must be between 0 and 1")
     if args.workers < 1 or args.retries < 0:
@@ -1175,9 +1193,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         until = until.astimezone(dt.timezone.utc)
         since = until - dt.timedelta(days=args.days)
         all_runs: list[RunObservation] = []
-        for repository in repositories:
-            all_runs.extend(list_runs(repository, since, until, args.conclusion | {"success"}))
+        if args.run_id is not None:
+            if len(repositories) != 1:
+                raise AppError("--run-id requires exactly one repository")
+            all_runs.append(get_run(repositories[0], args.run_id))
+        else:
+            for repository in repositories:
+                all_runs.extend(list_runs(repository, since, until, args.conclusion | {"success"}))
         runs = [run for run in all_runs if run.conclusion in args.conclusion]
+        if args.run_id is not None and not runs:
+            conclusion = all_runs[0].conclusion or "unknown"
+            raise AppError(f"run {args.run_id} concluded with {conclusion}, which is not selected for analysis")
         failures: list[FailureObservation] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
             pending = {
