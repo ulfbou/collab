@@ -277,7 +277,7 @@ def pack_command(a):
     device=not explicit_output and not a.from_git and not a.path and not a.root
     output=Path(explicit_output) if explicit_output else next_device_output(a.force)
     if not output.is_absolute(): output=Path.cwd()/output
-    omit=a.omit_non_utf8 or device
+    omit=not a.include_non_utf8 or device
     names=collect_paths(root,source,a.path,a.from_git,a.include,a.exclude,output,device)
     if not names: raise DxError('no files selected')
     count=omitted=0
