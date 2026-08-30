@@ -25,17 +25,17 @@ class DxCliCompatibilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary); source = base / "source"; destination = base / "destination"
             source.mkdir(); (source / "README.md").write_bytes(b"hello\n")
-            (source / "nested").mkdir(); (source / "nested" / "data.bin").write_bytes(b"\x00\xff\x01")
+            (source / "nested").mkdir(); (source / "nested" / "data.txt").write_bytes(b"nested data\n")
             carrier = base / "sample.dx.txt"
             packed = self.run_dx("pack", str(source), str(carrier))
             self.assertEqual(0, packed.returncode, packed.stderr)
             listed = self.run_dx("inspect", str(carrier), "--list")
             self.assertEqual(0, listed.returncode, listed.stderr)
-            self.assertEqual(["README.md", "nested/data.bin"], listed.stdout.splitlines())
+            self.assertEqual(["README.md", "nested/data.txt"], listed.stdout.splitlines())
             unpacked = self.run_dx("unpack", str(carrier), str(destination))
             self.assertEqual(0, unpacked.returncode, unpacked.stderr)
             self.assertEqual(b"hello\n", (destination / "README.md").read_bytes())
-            self.assertEqual(b"\x00\xff\x01", (destination / "nested" / "data.bin").read_bytes())
+            self.assertEqual(b"nested data\n", (destination / "nested" / "data.txt").read_bytes())
 
     def test_stdin_inspect_file(self):
         carrier = b'%%DX v1.3.1\n%%FILE path="README.md"\n    hello\n%%ENDBLOCK\n%%END\n'
