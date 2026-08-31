@@ -1,2 +1,11 @@
+*#
+*.bak
+*.txt
+*~
+.#*
+.bak
 .dx/
-__pycache__/
+__*__/
+__pycache__/*.#*
+bin/
+obj/
