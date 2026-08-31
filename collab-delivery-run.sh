@@ -66,6 +66,14 @@ AUDIT_SCOPES=()
 collab_profile_load session
 collab_profile_load delivery
 
+for argument in "$@"; do
+  case "$argument" in
+    --allow) ALLOWS=() ;;
+    --focused-test) FOCUSED_TESTS=() ;;
+    --audit-scope) AUDIT_SCOPES=() ;;
+  esac
+done
+
 while (($#)); do
   case "$1" in
     --issue) require_value "$@"; ISSUE=$2; shift 2 ;;
@@ -86,6 +94,27 @@ while (($#)); do
     *) die "unknown argument: $1" ;;
   esac
 done
+
+deduplicate_array() {
+  local array_name=$1
+  local -n values=$array_name
+  local -A seen=()
+  local value
+  local -a unique=()
+
+  for value in "${values[@]}"; do
+    if [[ ! -v 'seen[$value]' ]]; then
+      seen["$value"]=1
+      unique+=("$value")
+    fi
+  done
+
+  values=("${unique[@]}")
+}
+
+deduplicate_array ALLOWS
+deduplicate_array FOCUSED_TESTS
+deduplicate_array AUDIT_SCOPES
 
 [[ -n "$ISSUE" ]] || die '--issue is required'
 [[ "$ISSUE" =~ ^[0-9]+$ ]] || die '--issue must be numeric'
@@ -204,7 +233,7 @@ run_shell_phase() {
 CURRENT_PHASE="preflight"
 ACTUAL_BRANCH=$(git branch --show-current)
 [[ "$ACTUAL_BRANCH" == "$BRANCH" ]] || die "expected branch '$BRANCH', found '$ACTUAL_BRANCH'"
-DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
+DEFAULT_BRANCH=$(default_branch)
 [[ -n "$DEFAULT_BRANCH" ]] || die 'could not determine default branch'
 [[ "$ACTUAL_BRANCH" != "$DEFAULT_BRANCH" ]] || die 'refusing to work on the default branch'
 git diff --check
@@ -235,13 +264,18 @@ else
   CURRENT_PHASE="carrier-application-equivalence"
   printf '\n=== carrier-application-equivalence ===\n'
   while IFS= read -r path; do
+    path=${path%$'\r'}
     [[ -f "$path" ]] || die "carrier path is absent during --skip-apply: $path"
     expected=$(mktemp)
     "$TOOLS_DIR/collab-dx-inspect.sh" "$CARRIER_ABS" --file "$path" > "$expected"
-    cmp -s -- "$expected" "$path" || { rm -f "$expected"; die "carrier payload differs from working tree during --skip-apply: $path"; }
+    cmp -s -- "$expected" "$path" || {
+      rm -f "$expected"
+      die "carrier payload differs from working tree during --skip-apply: $path"
+    }
     rm -f "$expected"
   done < <("$TOOLS_DIR/collab-dx-inspect.sh" "$CARRIER_ABS" --list)
-  printf 'PASS: carrier payloads equal current working-tree files.\n' | tee "$LOG_DIR/carrier-application-equivalence.txt"
+  printf 'PASS: carrier payloads equal current working-tree files.\n' |
+    tee "$LOG_DIR/carrier-application-equivalence.txt"
 fi
 
 for project in "${FOCUSED_TESTS[@]}"; do
@@ -372,7 +406,7 @@ CURRENT_PHASE="evidence-package"
   git diff --cached --check
   printf '\n===== CURRENT PR =====\n'
   if command -v gh >/dev/null 2>&1; then
-    gh pr list --head "$BRANCH" --state open --json number,title,state,url
+    gh pr list --head "$BRANCH" --state open --json number,title,state,url || printf 'Current PR evidence unavailable; no PR is required before delivery assessment.\n'
   else
     printf 'gh not available; PR state not queried\n'
   fi
@@ -397,7 +431,11 @@ CARRIER_HASH=$(sha256sum "$FINAL_CARRIER" | awk '{print $1}')
   printf -- '- Carrier inspection: PASS\n'
   printf -- '- Restricted change audit: PASS\n'
   printf -- '- Provider build and tests: PASS\n'
-  printf -- '- Consumer build and tests: PASS\n'
+  if ((SKIP_APPLY == 0)); then
+    printf -- '- Consumer build and tests: PASS\n'
+  else
+    printf -- '- Consumer build and tests: SKIPPED by --skip-apply\n'
+  fi
   printf -- '- Full work verification: PASS\n\n'
   printf '## Repository state\n\n'
   printf -- '- Staged files: %s\n' "${#CHANGED_PATHS[@]}"
@@ -417,11 +455,12 @@ CARRIER_HASH=$(sha256sum "$FINAL_CARRIER" | awk '{print $1}')
 } > "$UPLOAD_MANIFEST"
 
 CURRENT_PHASE="final-validation"
-python3 - "$FINAL_CARRIER" "$FINAL_EVIDENCE" "$FINAL_REPORT" <<'PY'
+python3 - "$FINAL_CARRIER" "$FINAL_EVIDENCE" "$FINAL_REPORT" "$SKIP_APPLY" <<'PY'
 from pathlib import Path
 import sys
 
-carrier, evidence, report = map(Path, sys.argv[1:])
+carrier, evidence, report = map(Path, sys.argv[1:4])
+skip_apply = sys.argv[4] == "1"
 for path in (carrier, evidence, report):
     if not path.is_file() or path.stat().st_size == 0:
         raise SystemExit(f'ERROR: missing or empty final artifact: {path}')
@@ -434,18 +473,23 @@ if 'readonly="true"' in text:
 if text.count('%%FILE ') != text.count('%%ENDBLOCK'):
     raise SystemExit('ERROR: final carrier block counts differ')
 
-required = (
+required = [
     'restricted-change-audit',
     'provider-build',
     'provider-tests',
-    'consumer-build',
-    'consumer-tests',
     'work-verify',
     'repo-state-final',
-)
+]
+if not skip_apply:
+    required.extend((
+        'consumer-build',
+        'consumer-tests',
+    ))
 evidence_text = evidence.read_text(encoding='utf-8')
 for marker in required:
-    if marker not in evidence_text:
+    if marker not in evidence_text and not (
+        skip_apply and marker in ("consumer-build", "consumer-tests")
+    ):
         raise SystemExit(f'ERROR: evidence is missing section: {marker}')
 
 print('PASS: final carrier, evidence, and report are complete')

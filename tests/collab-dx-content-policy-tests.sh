@@ -3,6 +3,7 @@ set -Eeuo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 cp "$HERE/collab-dx-pack.py" "$HERE/dx.py" "$TMP/"; cd "$TMP"
+cp -R "$HERE/collab" "$TMP/"
 pass(){ printf 'PASS: %s\n' "$1"; }
 printf '\357\273\277text\n' > bom.txt; ! python3 collab-dx-pack.py --out x.dx --path bom.txt >/dev/null 2>&1; pass bom-rejected
 printf 'line one\nline two\n' > lf.txt; python3 collab-dx-pack.py --out lf.dx --path lf.txt >/dev/null; grep -q '^    line one$' lf.dx; grep -q '^    line two$' lf.dx; pass canonical-lf-emitted

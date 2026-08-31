@@ -6,7 +6,10 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 cp "$HERE/collab-delivery-run.sh" "$HERE/collab-dx-inspect.sh" "$HERE/collab-dx-apply-checked.sh" "$HERE/collab-dx-pack.py" "$HERE/collab-state.py" "$HERE/lib-common.sh" "$HERE/dx.py" "$TMP/"
+cp -R "$HERE/collab" "$TMP/"
 cd "$TMP"
+
+chmod +x collab-delivery-run.sh collab-dx-inspect.sh collab-dx-apply-checked.sh collab-dx-pack.py collab-state.py dx.py
 
 git init -q
 git config user.name Test
@@ -17,8 +20,8 @@ printf 'before\n' > tracked.txt
 git add tracked.txt
 git commit -qm baseline
 git branch -M main
-mkdir -p .git/refs/remotes/origin
-printf 'ref: refs/remotes/origin/main\n' > .git/refs/remotes/origin/HEAD
+git update-ref refs/remotes/origin/main HEAD
+git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
 git switch -qc fix/windows-dx-delivery-recovery
 printf 'after\n' > tracked.txt
 
@@ -52,21 +55,38 @@ export PATH="$TMP/bin:$PATH" CALL_LOG="$TMP/calls.log"
 python3 collab-state.py save delivery --json '{"issue":"18","branch":"fix/windows-dx-delivery-recovery","title":"Recovery","carrier":"carrier.dx.txt","providerSolution":"provider.slnx","consumerRoot":"consumer","consumerSolution":"consumer/consumer.slnx","toolsDir":"/f/scripts","outputPrefix":"delivery","skipApply":false,"allows":["old-allow","old-allow","legacy-allow"],"focusedTests":["old-test","old-test"],"auditScopes":["old-scope","old-scope"]}'
 python3 dx.py pack --root . --out carrier.dx.txt --path tracked.txt
 
-bash ./collab-delivery-run.sh \
+if ! bash ./collab-delivery-run.sh \
   --issue 18 \
   --branch fix/windows-dx-delivery-recovery \
   --title Recovery \
   --carrier carrier.dx.txt \
   --provider-solution provider.slnx \
   --consumer-root consumer \
-  --consumer-solution consumer/consumer.slnx \
+  --consumer-solution consumer.slnx \
+  --tools-dir "$TMP" \
   --allow tracked.txt \
   --allow tracked.txt \
   --focused-test tests/placeholder \
   --focused-test tests/placeholder \
   --audit-scope tracked.txt \
   --audit-scope tracked.txt \
-  --skip-apply >/dev/null
+  --skip-apply >"$TMP/delivery-run.out" 2>&1
+then
+  printf 'FAIL: delivery workflow failed\n' >&2
+  cat "$TMP/delivery-run.out" >&2
+
+  if [[ -f .dx/delivery-run/master.log ]]; then
+    printf '\n=== delivery master log ===\n' >&2
+    cat .dx/delivery-run/master.log >&2
+  fi
+
+  if [[ -f .dx/delivery-failure-report.txt ]]; then
+    printf '\n=== delivery failure report ===\n' >&2
+    cat .dx/delivery-failure-report.txt >&2
+  fi
+
+  false
+fi
 
 python3 - <<'PY'
 import json
@@ -81,6 +101,6 @@ assert values['auditScopes'] == ['tracked.txt'], values['auditScopes']
 PY
 
 bash ./collab-dx-inspect.sh .dx/delivery-final.dx.txt --compare-root .
-bash ./collab-dx-inspect.sh .dx/delivery-final.dx.txt --list | grep -qx 'tracked.txt'
+bash ./collab-dx-inspect.sh .dx/delivery-final.dx.txt --list | tr -d '\r' | grep -Fqx -- 'tracked.txt'
 
 printf 'PASS: delivery recovery defaults, replacement, dedup, and skip-apply equivalence\n'

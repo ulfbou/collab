@@ -1,10 +1,36 @@
 #!/usr/bin/env python3
 """Canonical DX v1.3.1 carrier codec and CLI."""
 from __future__ import annotations
-import argparse, base64, binascii, fnmatch, hashlib, os, re, subprocess, sys, tempfile
+import argparse, base64, binascii, fnmatch, hashlib, os, re, subprocess, sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TextIO
+try:
+    from collab.filesystem import FilesystemError, atomic_write_text
+    from collab.validation import ValidationError, require_safe_relative_path
+except ModuleNotFoundError:
+    # Keep the historical standalone dx.py deployment working when only this file is copied.
+    import tempfile
+    class FilesystemError(OSError): pass
+    class ValidationError(ValueError): pass
+    def require_safe_relative_path(value, location="path"):
+        normalized=value.replace("\\", "/")
+        parts=normalized.split("/")
+        if (not normalized or normalized.startswith("/") or '"' in normalized or "\0" in normalized or "\n" in normalized or "\r" in normalized or any(part in ("", ".", "..") for part in parts)):
+            raise ValidationError(f"unsafe {location}: {value!r}")
+        return PurePosixPath(normalized).as_posix()
+    def atomic_write_text(path, writer, *, replace=True, encoding="utf-8"):
+        if path.is_symlink(): raise FilesystemError(f"refusing unsafe symlink target: {path}")
+        if path.exists() and not replace: raise FilesystemError(f"output already exists: {path}")
+        path.parent.mkdir(parents=True,exist_ok=True)
+        fd,tmp=tempfile.mkstemp(prefix=path.name+".tmp.",dir=path.parent); os.close(fd)
+        try:
+            with open(tmp,"w",encoding=encoding,newline="\n") as h: writer(h); h.flush(); os.fsync(h.fileno())
+            if not replace and path.exists(): raise FilesystemError(f"output already exists: {path}")
+            os.replace(tmp,path)
+        finally:
+            try: os.unlink(tmp)
+            except FileNotFoundError: pass
 
 VERSION = "v1.3.1"
 DEVICE_DIR = Path("~/storage/downloads/DX").expanduser()
@@ -25,10 +51,10 @@ class Entry:
     encoding: str | None = None
 
 def safe_path(raw: str) -> str:
-    value=raw.replace('\\','/'); parts=value.split('/')
-    if (not value or value.startswith('/') or '"' in value or '\0' in value or '\n' in value or '\r' in value or any(x in ('','.','..') for x in parts)):
-        raise DxError(f"unsafe path: {raw!r}")
-    return PurePosixPath(value).as_posix()
+    try:
+        return require_safe_relative_path(raw)
+    except ValidationError as exc:
+        raise DxError(f"unsafe path: {raw!r}") from exc
 
 def normalize_text(text: str) -> str:
     return text.replace('\r\n','\n').replace('\r','\n').rstrip('\n')
@@ -227,47 +253,15 @@ def encode_entry(h,path,data,readonly,include_binary,omit_binary):
     h.write('%%ENDBLOCK\n'); return True
 
 def write_atomic(output:Path,force:bool,writer):
-    if output.is_symlink(): raise DxError(f"refusing to replace symlink: {output}")
-    if output.exists() and not force: raise DxError(f"output already exists; use --force to replace it: {output}")
-    output.parent.mkdir(parents=True,exist_ok=True)
-    fd,tmp=tempfile.mkstemp(prefix=output.name+'.tmp.',dir=output.parent,text=True); os.close(fd)
     try:
-        with open(tmp,'w',encoding='utf-8',newline='\n') as h: writer(h); h.flush(); os.fsync(h.fileno())
-        if not force:
-            lock = output.with_name(output.name + ".lock")
-            lock_fd = None
-            try:
-                try:
-                    lock_fd = os.open(
-                        lock,
-                        os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                        0o600,
-                    )
-                except FileExistsError:
-                    raise DxError(
-                        f"output is currently being created: {output}"
-                    )
-
-                if output.exists():
-                    raise DxError(
-                        "output already exists; use --force to replace it: "
-                        f"{output}"
-                    )
-
-                os.replace(tmp, output)
-            finally:
-                if lock_fd is not None:
-                    os.close(lock_fd)
-                try:
-                    os.unlink(lock)
-                except FileNotFoundError:
-                    pass
-        else:
-            os.replace(tmp,output)
-    finally:
-        try: os.unlink(tmp)
-        except FileNotFoundError: pass
-
+        atomic_write_text(output, writer, replace=force)
+    except FilesystemError as exc:
+        message=str(exc)
+        if message.startswith("output already exists:"):
+            raise DxError(f"output already exists; use --force to replace it: {output}") from exc
+        if message.startswith("refusing unsafe symlink target:"):
+            raise DxError(f"refusing to replace symlink: {output}") from exc
+        raise DxError(message) from exc
 def pack_command(a):
     if a.include_non_utf8 and a.omit_non_utf8: raise DxError('--include-non-utf8 and --omit-non-utf8 are mutually exclusive')
     source_arg=a.source or (a.root if a.root else '.'); source=Path(source_arg).resolve()
