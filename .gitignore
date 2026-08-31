@@ -5,7 +5,8 @@
 .#*
 .bak
 .dx/
-__*__/
+__*__
+__pycache__/
 __pycache__/*.#*
 bin/
 obj/
