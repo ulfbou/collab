@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P);ROOT=$(mktemp -d);trap 'rm -rf "$ROOT"' EXIT;cp "$HERE/collab-state.py" "$HERE/collab-dx-pack.py" "$HERE/dx.py" "$ROOT"/;cd "$ROOT";git init -q;git config user.email test@example.invalid;git config user.name Test;git remote add origin https://github.com/example/repo.git;echo x>README;git add README;git commit -qm init
+HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P);ROOT=$(mktemp -d);trap 'rm -rf "$ROOT"' EXIT;cp "$HERE/collab-state.py" "$HERE/collab-dx-pack.py" "$HERE/dx.py" "$ROOT"/;cp -R "$HERE/collab" "$ROOT/";cd "$ROOT";git init -q;git config user.email test@example.invalid;git config user.name Test;git remote add origin https://github.com/example/repo.git;echo x>README;git add README;git commit -qm init
 pass(){ printf 'PASS: %s\n' "$1"; }
 json='{"branch":"test/example"}';python3 collab-state.py save session --json "$json";[[ $(python3 collab-state.py load session|python3 -c 'import json,sys;print(json.load(sys.stdin)["branch"])') == test/example ]];pass scalar-profile
 json='{"issue":"10","branch":"test/example","title":"T","carrier":"c","providerSolution":"p","consumerRoot":"r","consumerSolution":"s","toolsDir":"t","outputPrefix":"o","skipApply":false,"allows":["a b","ü"],"focusedTests":[],"auditScopes":[]}'
