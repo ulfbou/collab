@@ -1,2 +1,10 @@
 .dx/
 __pycache__/
+*~
+*#
+.#*
+.bak
+__*__
+bin/
+obj/
+*.txt
