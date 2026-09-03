@@ -74,5 +74,47 @@ class DxCliCompatibilityTests(unittest.TestCase):
             self.assertTrue(carrier.is_file())
 
 
+class DxObservedRegressionTests(unittest.TestCase):
+    def run_dx(self, *args: str, cwd: Path | None = None):
+        return subprocess.run([sys.executable, str(DX), *args], cwd=cwd or ROOT, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+
+    def test_duplicate_pack_from_historical_alias_is_tolerated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("value\n", encoding="utf-8")
+            carrier = base / "carrier.dx.txt"
+            result = self.run_dx("pack", "pack", str(source), "-o", str(carrier))
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue(carrier.is_file())
+            self.assertIn("duplicate command", result.stderr)
+
+    def test_parse_error_does_not_raise_unbound_local_error(self):
+        result = self.run_dx("pack", "--pack")
+        self.assertEqual(2, result.returncode)
+        self.assertIn("unrecognized arguments", result.stderr)
+        self.assertNotIn("UnboundLocalError", result.stderr)
+
+    def test_output_under_symlinked_parent_is_supported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / "source"
+            source.mkdir()
+            (source / "file.txt").write_text("value\n", encoding="utf-8")
+            real = base / "real"
+            real.mkdir()
+            link = base / "downloads"
+            try:
+                link.symlink_to(real, target_is_directory=True)
+            except OSError:
+                self.skipTest("directory symlinks unavailable")
+            carrier = link / "carrier.dx.txt"
+            result = self.run_dx("pack", str(source), "-o", str(carrier))
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue((real / "carrier.dx.txt").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

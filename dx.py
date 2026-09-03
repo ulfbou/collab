@@ -221,7 +221,7 @@ def parse(source: TextIO) -> tuple[str, list[Entry], int]:
                 raise InvalidCarrierError("escaped='true' is only valid for text entries")
             if 'trailing_newlines' in attrs and encoding == 'base64':
                 raise InvalidCarrierError("trailing_newlines is only valid for text entries")
-            trailing = int(attrs.get('trailing_newlines', '0'))
+            trailing = int(attrs.get('trailing_newlines', '1' if encoding == '' and version != 'v2.0.0' else '0'))
             if trailing < 0:
                 raise InvalidCarrierError("trailing_newlines must be non-negative")
             i += 1
@@ -556,8 +556,13 @@ def write_atomic(output: Path, force: bool, writer) -> None:
     if output == Path('-'):
         writer(sys.stdout)
         return
+    # Termux exposes ~/storage/downloads through a directory symlink. Resolve
+    # only the parent, while continuing to reject a symlink at the output file.
+    if output.is_symlink():
+        raise WriteConflictError(f"refusing to replace symlink: {output}")
+    writable_output = output.parent.resolve() / output.name
     try:
-        atomic_write_text(output, writer, replace=force)
+        atomic_write_text(writable_output, writer, replace=force)
     except FilesystemError as exc:
         message = str(exc)
         if message.startswith("output already exists:"):
@@ -1093,8 +1098,8 @@ def build_parser() -> argparse.ArgumentParser:
     insp.add_argument('-l', '--list', action='store_true', help='List file paths')
     insp.add_argument('-H', '--hashes', action='store_true', help='Show SHA-256 hashes')
     insp.add_argument('-R', '--readonly', action='store_true', help='List read-only paths')
-    insp.add_argument('-c', '--cat', metavar='PATH', help='Write file content to stdout')
-    insp.add_argument('-C', '--compare', metavar='DIR', help='Compare carrier with directory')
+    insp.add_argument('-c', '--cat', '--file', dest='cat', metavar='PATH', help='Write file content to stdout')
+    insp.add_argument('-C', '--compare', '--compare-root', dest='compare', metavar='DIR', help='Compare carrier with directory')
     insp.add_argument('--check-extra', action='store_true', help='Also report extra local files (with --compare)')
     insp.add_argument('--summary', action='store_true', help='Show summary (default)')
     insp.add_argument('--verify', action='store_true', help='Verify carrier structure')
@@ -1142,7 +1147,18 @@ def main(argv=None):
     global_verbose = any(arg in ("-v", "--verbose") for arg in argsv)
     normalized_args = [arg for arg in argsv if arg not in ("-q", "--quiet", "-v", "--verbose")]
 
+    commands = {'pack', 'p', 'unpack', 'u', 'apply', 'a', 'inspect'}
+    if (len(normalized_args) >= 2 and normalized_args[0] in commands
+            and normalized_args[1] == normalized_args[0]):
+        print(
+            f"WARNING: duplicate command {normalized_args[0]!r} ignored; "
+            "update the alias to invoke dx.py without a command.",
+            file=sys.stderr,
+        )
+        normalized_args.pop(1)
+
     parser = build_parser()
+    a = None
     try:
         a = parser.parse_args(normalized_args)
         a.quiet = global_quiet
@@ -1168,7 +1184,7 @@ def main(argv=None):
 
         return a.func(a)
     except InvalidCarrierError as e:
-        if hasattr(a, 'command') and a.command == 'inspect' and getattr(a, 'json', False):
+        if a is not None and hasattr(a, 'command') and a.command == 'inspect' and getattr(a, 'json', False):
             json.dump({
                 "schema_version": 1,
                 "command": "inspect",
@@ -1180,7 +1196,7 @@ def main(argv=None):
             return e.exit_code
         print(f"ERROR: {e}", file=sys.stderr)
         # fall through to usage printing
-        command = a.command if hasattr(a, 'command') else None
+        command = a.command if a is not None and hasattr(a, 'command') else None
         usage_map = {
             'pack': 'dx.py pack [SOURCE] [OPTIONS]',
             'p': 'dx.py pack [SOURCE] [OPTIONS]',
@@ -1196,7 +1212,7 @@ def main(argv=None):
         return e.exit_code
     except DxError as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        command = a.command if hasattr(a, 'command') else None
+        command = a.command if a is not None and hasattr(a, 'command') else None
         usage_map = {
             'pack': 'dx.py pack [SOURCE] [OPTIONS]',
             'p': 'dx.py pack [SOURCE] [OPTIONS]',
