@@ -45,6 +45,17 @@ require_executed() {
 clean_tree() { [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; }
 
 
+branch_exists() {
+  local branch=$1
+  if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    return 0
+  fi
+  if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
 COLLAB_STATE="$SCRIPT_DIR/collab-state.py"
 collab_state() { require_cmd python3; [[ -x "$COLLAB_STATE" ]] || die "missing executable: $COLLAB_STATE"; python3 "$COLLAB_STATE" "$@"; }
 collab_profile_json() { collab_state load "$1"; }

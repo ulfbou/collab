@@ -16,7 +16,8 @@ while (($#));do case "$1" in
  --reviewer) shift;((r_seen++))||reviewers=();reviewers+=("$1");;--clear-reviewers) r_seen=1;reviewers=();;
  --team-reviewer) shift;((t_seen++))||teams=();teams+=("$1");;--clear-team-reviewers) t_seen=1;teams=();;
  --milestone) shift;milestone=${1:?};inherit=false;;--no-milestone) milestone='';inherit=false;;--draft)draft=true;;--ready)draft=false;;--dry-run)dry=true;;
- -h|--help) echo 'Usage: collab-pr-create.sh [--issue N] [--base BRANCH] [--title T] [--body B|--body-file F] [--assignee U|--no-assignee] [--label L] [--reviewer U] [--team-reviewer T] [--milestone M|--no-milestone] [--draft|--ready] [--dry-run]';exit 0;;*)usage_error "unknown argument: $1";;esac;shift;done
+ -h|--help) echo 'Usage: collab-pr-create.sh [--issue N] [--base BRANCH] [--title T] [--body B|--body-file F] [--assignee U|--no-assignee] [--label L] [--reviewer U] [--team-reviewer T] [--milestone M|--no-milestone] [--draft|--ready] [--dry-run]';exit 0 # --base BRANCH: Target branch for PR (defaults to repository default);;*)usage_error "unknown argument: $1";;esac;shift;done
+[[ -n $base && $base != "$default" ]] && { branch_exists "$base" || die "base branch does not exist: $base"; }
 [[ $issue =~ ^[0-9]+$ ]]||usage_error '--issue must be numeric';[[ -n $title ]]||usage_error '--title is required';[[ -z $body||-z $body_file ]]||usage_error '--body and --body-file are mutually exclusive'
 phase PREFLIGHT;[[ -n $branch&&$branch != "$default" ]]||die 'PR creation requires a non-default branch';gh auth status>/dev/null 2>&1||die 'gh authentication unavailable'
 existing=$(gh pr list --repo "$repo" --head "$branch" --state open --json number,url);[[ $(jq length<<<"$existing")==0 ]]||die "an open PR already exists for branch $branch"
