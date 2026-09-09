@@ -17,6 +17,14 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || die "required command not fou
 phase() { printf '\n=== %s ===\n' "$1"; }
 repo_root() { git rev-parse --show-toplevel 2>/dev/null || die 'not inside a Git repository'; }
 default_branch() {
+  if git show-ref --verify --quiet refs/heads/master; then
+    printf 'master\n'
+    return
+  fi
+  if git show-ref --verify --quiet refs/heads/main; then
+    printf 'main\n'
+    return
+  fi
   local ref
   ref=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
   if [[ -n "$ref" ]]; then printf '%s\n' "${ref#origin/}"; return; fi
@@ -36,6 +44,17 @@ require_executed() {
 }
 clean_tree() { [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; }
 
+
+branch_exists() {
+  local branch=$1
+  if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    return 0
+  fi
+  if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
 
 COLLAB_STATE="$SCRIPT_DIR/collab-state.py"
 collab_state() { require_cmd python3; [[ -x "$COLLAB_STATE" ]] || die "missing executable: $COLLAB_STATE"; python3 "$COLLAB_STATE" "$@"; }
