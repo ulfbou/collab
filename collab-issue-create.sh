@@ -44,7 +44,7 @@ if [[ -n "$MILESTONE" ]]; then
 fi
 
 for label in "${LABELS[@]}"; do
-  if ! gh label list --repo "$repo" --limit 500 --json name --jq '.[].name' | grep -Fxq "$label"; then
+  if ! grep -Fxq "$label" <<<"$(gh label list --repo "$repo" --limit 500 --json name --jq '.[].name')"; then
     gh label create "$label" --repo "$repo" --color 5319e7 >/dev/null
   fi
 done
