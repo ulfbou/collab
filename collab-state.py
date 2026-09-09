@@ -58,6 +58,7 @@ PROFILE_FIELDS = {
     "selection": {"decision": str, "artifact": str, "evidenceHead": str, "acceptedAt": str},
     "pr": {
         "issue": str,
+        "base": str,
         "title": str,
         "bodyFile": str,
         "draft": bool,
