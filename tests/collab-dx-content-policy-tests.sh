@@ -11,7 +11,7 @@ grep -q 'path="bom.txt" encoding="base64"' x.dx
 python3 dx.py unpack x.dx bom-out --quiet
 cmp -s bom.txt bom-out/bom.txt
 pass bom-preserved-as-base64
-printf 'line one\nline two\n' > lf.txt; python3 collab-dx-pack.py --out lf.dx --path lf.txt >/dev/null; grep -q '^    line one$' lf.dx; grep -q '^    line two$' lf.dx; pass canonical-lf-emitted
+printf 'line one\nline two\n' > lf.txt; python3 collab-dx-pack.py --out lf.dx --path lf.txt >/dev/null; grep -q '^line one$' lf.dx; grep -q '^line two$' lf.dx; pass canonical-lf-emitted
 : > empty.txt; python3 collab-dx-pack.py --out empty.dx --path empty.txt >/dev/null; grep -q '^%%FILE path="empty.txt"$' empty.dx; pass empty-file-supported
 printf 'delete me\n' > deleted.txt; rm deleted.txt; ! python3 collab-dx-pack.py --out deleted.dx --path deleted.txt >/dev/null 2>&1; pass deletion-rejected
 printf 'quote\n' > 'bad"name'; ! python3 collab-dx-pack.py --out bad.dx --path 'bad"name' >/dev/null 2>&1; pass unrepresentable-path-rejected
