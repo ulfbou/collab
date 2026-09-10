@@ -15,10 +15,27 @@ python3 "$ROOT/dx.py" pack --root "$TMP/src" --out "$TMP/text.dx.txt" --include 
 ! grep -q 'secret.md' "$TMP/text.dx.txt"
 grep -q 'docs/keep.md' "$TMP/text.dx.txt"
 grep -q 'code/main.py' "$TMP/text.dx.txt"
-if python3 "$ROOT/dx.py" pack --root "$TMP/src" --out "$TMP/fail.dx.txt" --path blob.bin 2>/dev/null; then
-  echo 'ERROR: non-UTF-8 delivery unexpectedly succeeded' >&2; exit 1
-fi
-python3 "$ROOT/dx.py" pack --root "$TMP/src" --out "$TMP/all.dx.txt" --path plain.txt --path nested.dx.txt --path blob.bin --include-non-utf8
+python3 "$ROOT/dx.py" pack \
+  --root "$TMP/src" \
+  --out "$TMP/binary.dx.txt" \
+  --path blob.bin
+grep -q 'path="blob.bin" encoding="base64"' "$TMP/binary.dx.txt"
+
+python3 "$ROOT/dx.py" pack \
+  --root "$TMP/src" \
+  --out "$TMP/skipped.dx.txt" \
+  --path plain.txt \
+  --path blob.bin \
+  --skip-binary
+grep -q 'path="plain.txt"' "$TMP/skipped.dx.txt"
+! grep -q 'path="blob.bin"' "$TMP/skipped.dx.txt"
+
+python3 "$ROOT/dx.py" pack \
+  --root "$TMP/src" \
+  --out "$TMP/all.dx.txt" \
+  --path plain.txt \
+  --path nested.dx.txt \
+  --path blob.bin
 grep -q 'path="blob.bin" encoding="base64"' "$TMP/all.dx.txt"
 grep -q '^        %%DX v1.3.1$' "$TMP/all.dx.txt"
 python3 "$ROOT/dx.py" apply "$TMP/all.dx.txt" "$TMP/out" --force

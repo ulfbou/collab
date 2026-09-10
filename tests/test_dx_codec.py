@@ -29,13 +29,16 @@ class DxCodecTests(unittest.TestCase):
         self.assertEqual(b"hello\n", entries[0].data)
         self.assertTrue(entries[0].readonly)
 
-    def test_parses_headerless_footerless_carrier(self):
-        version, entries, notes = self.parse(
-            '%%FILE path="src/example.py"\n    print("ok")\n%%ENDBLOCK\n'
-        )
-        self.assertEqual("unversioned", version)
-        self.assertEqual(0, notes)
-        self.assertEqual(b'print("ok")\n', entries[0].data)
+    def test_rejects_headerless_footerless_carrier(self):
+        with self.assertRaisesRegex(
+            DX.InvalidCarrierError,
+            "missing %%DX header",
+        ):
+            self.parse(
+                '%%FILE path="src/example.py"\n'
+                '    print("ok")\n'
+                '%%ENDBLOCK\n'
+            )
 
     def test_decodes_escaped_directive_content(self):
         _, entries, _ = self.parse(
@@ -56,7 +59,7 @@ class DxCodecTests(unittest.TestCase):
     def test_encode_entry_round_trips_text_and_directives(self):
         output = io.StringIO()
         data = b"alpha\n%%END\nomega\n"
-        self.assertTrue(DX.encode_entry(output, "sample.txt", data, True, True, False))
+        self.assertTrue(DX.encode_entry(output, "sample.txt", data, True))
         _, entries, _ = self.parse("%%DX v1.3.1\n" + output.getvalue() + "%%END\n")
         self.assertEqual(data, entries[0].data)
         self.assertTrue(entries[0].readonly)
@@ -64,7 +67,7 @@ class DxCodecTests(unittest.TestCase):
     def test_encode_entry_round_trips_binary(self):
         output = io.StringIO()
         data = bytes(range(256))
-        self.assertTrue(DX.encode_entry(output, "sample.bin", data, False, True, False))
+        self.assertTrue(DX.encode_entry(output, "sample.bin", data, False))
         _, entries, _ = self.parse("%%DX v1.3.1\n" + output.getvalue() + "%%END\n")
         self.assertEqual(data, entries[0].data)
         self.assertEqual("base64", entries[0].encoding)
@@ -87,10 +90,10 @@ class DxCodecTests(unittest.TestCase):
             self.parse('%%FILE path="sample.txt"\n    value\n')
 
     def test_pattern_selection_characterization(self):
-        self.assertTrue(DX.selected("src/tool.py", ["*.py"], []))
-        self.assertTrue(DX.selected("src/tool.py", ["src"], []))
-        self.assertFalse(DX.selected("src/tool.py", ["tests"], []))
-        self.assertFalse(DX.selected("src/tool.py", [], ["src/**"]))
+        self.assertTrue(DX.match_pattern("src/tool.py", "*.py"))
+        self.assertTrue(DX.match_pattern("src/tool.py", "src"))
+        self.assertFalse(DX.match_pattern("src/tool.py", "tests"))
+        self.assertTrue(DX.match_pattern("src/tool.py", "src/**"))
 
 
 if __name__ == "__main__":
