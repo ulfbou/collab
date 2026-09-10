@@ -562,3 +562,53 @@ def test_command_help_is_complete_and_available():
         text = result.stdout.decode()
         assert "usage:" in text.lower()
         assert command in text.lower()
+
+# 23. Payload indentation is optional and only escaped payloads are dedented.
+def test_unindented_text_payload_is_preserved_verbatim(tmp_path: Path):
+    carrier = (
+        b'%%DX v2.0.0\n'
+        b'%%FILE path="plain.txt" trailing_newlines="1"\n'
+        b'alpha\n'
+        b'    source indentation\n'
+        b'%%ENDBLOCK\n'
+        b'%%END\n'
+    )
+    destination = tmp_path / "destination"
+    result = unpack_bytes(carrier, destination, "-q")
+    assert_ok(result)
+    assert (destination / "plain.txt").read_bytes() == b"alpha\n    source indentation\n"
+
+
+def test_escaped_indented_payload_is_dedented(tmp_path: Path):
+    carrier = (
+        b'%%DX v2.0.0\n'
+        b'%%FILE path="nested.dx.txt" escaped="true" trailing_newlines="1"\n'
+        b'    %%DX v1.3.1\n'
+        b'        %%ENDBLOCK\n'
+        b'    %%END\n'
+        b'%%ENDBLOCK\n'
+        b'%%END\n'
+    )
+    destination = tmp_path / "destination"
+    result = unpack_bytes(carrier, destination, "-q")
+    assert_ok(result)
+    assert (destination / "nested.dx.txt").read_bytes() == b"%%DX v1.3.1\n%%ENDBLOCK\n%%END\n"
+
+
+def test_pack_indents_only_when_payload_requires_directive_escaping(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "plain.txt").write_bytes(b"alpha\n    source indentation\n")
+    (source / "nested.dx.txt").write_bytes(b"%%DX v1.3.1\n%%ENDBLOCK\n%%END\n")
+    carrier = pack_to_bytes(source)
+    text = carrier.decode("utf-8")
+    plain = text.split('%%FILE path="plain.txt"', 1)[1].split('%%ENDBLOCK', 1)[0]
+    nested = text.split('%%FILE path="nested.dx.txt"', 1)[1].split('\n%%ENDBLOCK\n', 1)[0]
+    assert 'escaped="true"' not in plain.splitlines()[0]
+    assert "\nalpha\n    source indentation\n" in plain
+    assert 'escaped="true"' in nested.splitlines()[0]
+    destination = tmp_path / "destination"
+    result = unpack_bytes(carrier, destination, "-q")
+    assert_ok(result)
+    assert (destination / "plain.txt").read_bytes() == (source / "plain.txt").read_bytes()
+    assert (destination / "nested.dx.txt").read_bytes() == (source / "nested.dx.txt").read_bytes()

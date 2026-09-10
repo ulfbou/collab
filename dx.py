@@ -127,32 +127,26 @@ def encode_text_line(line: str) -> str:
 
 
 def decode_text_line(line: str, escaped: bool) -> str:
+    if not escaped:
+        return line
     if not line.startswith('    '):
-        raise InvalidCarrierError(f"unindented text payload line: {line!r}")
+        raise InvalidCarrierError(f"escaped text payload line is not indented: {line!r}")
     line = line[4:]
-    if escaped and line.startswith('    %%'):
-        # Remove the extra four spaces used for escaping.
-        return line[4:]
-    return line
+    return line[4:] if line.startswith('    %%') else line
 
 
 def decoded_payload(path: str, body: list[str], encoding: str | None, escaped: bool, trailing_newlines: int = 0) -> bytes:
     if encoding in (None, ''):
-        text = '\n'.join(decode_text_line(x, escaped) for x in body)
-        # Preserve exact trailing newlines as recorded
+        text = '\n'.join(decode_text_line(line, escaped) for line in body)
         return (text.rstrip('\n') + '\n' * trailing_newlines).encode('utf-8')
     if encoding == 'base64':
         try:
-            chunks = []
-            for line in body:
-                if not line.startswith('    '):
-                    raise InvalidCarrierError(f"unindented base64 payload line: {path}")
-                chunks.append(line[4:])
+            indented = bool(body) and all(line.startswith('    ') for line in body)
+            chunks = [line[4:] if indented else line for line in body]
             return base64.b64decode(''.join(chunks), validate=True)
         except (binascii.Error, ValueError) as exc:
             raise InvalidCarrierError(f"invalid base64 payload: {path}") from exc
     raise InvalidCarrierError(f"unsupported encoding {encoding!r}: {path}")
-
 
 def parse(source: TextIO) -> tuple[str, list[Entry], int]:
     """Parse a DX carrier stream.
@@ -233,8 +227,8 @@ def parse(source: TextIO) -> tuple[str, list[Entry], int]:
                 raise InvalidCarrierError(f"unterminated file block: {path}")
             escaped = attrs.get('escaped', 'false') == 'true'
             if version != 'v2.0.0':
-                # legacy: always assume escaped behavior (indentation-based)
-                escaped = True
+                    # Legacy indentation is optional. Dedent only when the complete payload is indented.
+                    escaped = bool(body) and all(item.startswith('    ') for item in body)
             entries.append(Entry(
                 path,
                 decoded_payload(path, body, encoding, escaped, trailing),
@@ -541,20 +535,27 @@ def encode_entry(h: TextIO, path: str, data: bytes, readonly: bool) -> bool:
         # Count trailing newlines
         trailing = len(text) - len(text.rstrip('\n'))
         text_stripped = text.rstrip('\n')
-        attrs.append('escaped="true"')
+        lines = text_stripped.split('\n') if text_stripped else []
+        escaped = any(line == '%%ENDBLOCK' for line in lines)
+        if escaped:
+            attrs.append('escaped="true"')
         if trailing:
             attrs.append(f'trailing_newlines="{trailing}"')
         h.write('%%FILE ' + ' '.join(attrs) + '\n')
-        if text_stripped:
-            for line in text_stripped.split('\n'):
-                h.write(encode_text_line(line) + '\n')
+        for line in lines:
+            h.write((encode_text_line(line) if escaped else line) + '\n')
         h.write('%%ENDBLOCK\n')
         return True
 
 
 def write_atomic(output: Path, force: bool, writer) -> None:
     if output == Path('-'):
-        writer(sys.stdout)
+        from io import StringIO
+
+        buffer = StringIO(newline="\n")
+        writer(buffer)
+        sys.stdout.buffer.write(buffer.getvalue().encode("utf-8"))
+        sys.stdout.buffer.flush()
         return
     # Termux exposes ~/storage/downloads through a directory symlink. Resolve
     # only the parent, while continuing to reject a symlink at the output file.
