@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-H=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."&&pwd -P);T=$(mktemp -d);trap 'rm -rf "$T"' EXIT;cp "$H/collab-evidence.py" "$T/";cd "$T";git init -q;git config user.name T;git config user.email t@x;git remote add origin https://github.com/example/evidence.git;printf 'ok\n'>a.txt;printf '\0x'>binary.bin;printf '\377\376'>nonutf.bin;python3 - <<'PY'
+H=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."&&pwd -P);T=$(mktemp -d);trap 'rm -rf "$T"' EXIT;cp "$H/collab-evidence.py" "$T/";cp -R "$H/collab" "$T/";cd "$T";git init -q;git config user.name T;git config user.email t@x;git remote add origin https://github.com/example/evidence.git;printf 'ok\n'>a.txt;printf '\0x'>binary.bin;printf '\377\376'>nonutf.bin;python3 - <<'PY'
 from pathlib import Path
 Path('large.txt').write_text('x'*100)
 PY

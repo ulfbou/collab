@@ -36,7 +36,7 @@ git switch -c "$B" origin/$BASE --quiet
 git push -u origin "$B" >/dev/null 2>&1
 
 cp "$HERE"/collab-{evidence.py,chat.py,chat-start.sh,context-collect.sh,state.py} "$HERE/lib-common.sh" .
-cp -r "$HERE/schemas" .
+cp -r "$HERE/collab" "$HERE/schemas" .
 chmod +x collab-*.sh collab-*.py
 
 ./collab-context-collect.sh --role lead --repo "$REPO" --include fixtures/selected --out context.md >/dev/null

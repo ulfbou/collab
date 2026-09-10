@@ -39,11 +39,11 @@ python3 "$ROOT/dx.py" pack \
 grep -q 'path="blob.bin" encoding="base64"' "$TMP/all.dx.txt"
 grep -q '^        %%DX v1.3.1$' "$TMP/all.dx.txt"
 python3 "$ROOT/dx.py" apply "$TMP/all.dx.txt" "$TMP/out" --force
-[[ $(tail -c 1 "$TMP/out/plain.txt" | od -An -tuC) == *10* ]]
+cmp "$TMP/src/plain.txt" "$TMP/out/plain.txt"
 cmp "$TMP/src/blob.bin" "$TMP/out/blob.bin"
 cmp "$TMP/src/nested.dx.txt" "$TMP/out/nested.dx.txt"
 python3 "$ROOT/dx.py" inspect "$TMP/all.dx.txt" --compare-root "$TMP/out"
-python3 "$ROOT/dx.py" inspect "$TMP/all.dx.txt" --hashes | grep -q "$(sha256sum "$TMP/src/blob.bin" | awk '{print $1}') blob.bin"
+python3 "$ROOT/dx.py" inspect "$TMP/all.dx.txt" --hashes | grep -Fq "$(sha256sum "$TMP/src/blob.bin" | awk '{print $1}')  blob.bin"
 printf 'PASS: canonical DX codec\n'
 
 # Device defaults, naming, overwrite, help, and binary omission.
@@ -54,18 +54,18 @@ printf 'ignored\n' > "$TMP/device/.dx/history.txt"
 printf '\377\376' > "$TMP/device/binary.bin"
 (
   cd "$TMP/device"
-  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-1.out" 2> "$TMP/device-pack-1.err"
-  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-2.out" 2> "$TMP/device-pack-2.err"
-  DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack --force > "$TMP/device-force.out" 2> "$TMP/device-force.err"
+  HOME="$TMP/home" DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-1.out" 2> "$TMP/device-pack-1.err"
+  HOME="$TMP/home" DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack > "$TMP/device-pack-2.out" 2> "$TMP/device-pack-2.err"
+  HOME="$TMP/home" DX_DEVICE_DIR="$TMP/home/storage/downloads/DX" python3 "$ROOT/dx.py" pack --force > "$TMP/device-force.out" 2> "$TMP/device-force.err"
 )
 [[ -f "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt" ]]
 [[ -f "$TMP/home/storage/downloads/DX/dx-carrier-2.dx.txt" ]]
-[[ -f "$TMP/home/storage/downloads/DX/dx-carrier.dx.txt" ]]
+[[ -f "$TMP/home/storage/downloads/DX/dx-carrier-3.dx.txt" ]]
 ! grep -q '.git/config' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
 ! grep -q '.dx/history.txt' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
-! grep -q 'binary.bin' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
-grep -q 'Omitted non-UTF-8: binary.bin' "$TMP/device-pack-1.err"
-python3 "$ROOT/dx.py" -h | grep -q 'DX v1.3.1 carrier utility'
+grep -q 'path="binary.bin" encoding="base64"' "$TMP/home/storage/downloads/DX/dx-carrier-1.dx.txt"
+grep -q 'Skipped non-UTF-8: 0 files' "$TMP/device-pack-1.err"
+python3 "$ROOT/dx.py" -h | grep -q 'DX v2.0.0 carrier utility'
 python3 "$ROOT/dx.py" pack -h >/dev/null
 python3 "$ROOT/dx.py" unpack -h >/dev/null
 python3 "$ROOT/dx.py" apply -h >/dev/null

@@ -7,7 +7,7 @@ root=$(repo_root);cd "$root";repo=$(origin_repo);default=$(default_branch);branc
 p=$(collab_profile_json pr);d=$(collab_profile_json delivery)
 issue=$(jq -r '.issue // empty'<<<"$p");[[ -n $issue ]]||issue=$(jq -r '.issue // empty'<<<"$d");title=$(jq -r '.title // empty'<<<"$p");[[ -n $title ]]||title=$(jq -r '.title // empty'<<<"$d")
 body='';body_file=$(jq -r '.bodyFile // empty'<<<"$p");draft=$(jq -r '.draft // false'<<<"$p");milestone=$(jq -r '.milestone // empty'<<<"$p");inherit=$(jq -r '.inheritMilestone // true'<<<"$p");base=$(jq -r '.base // empty'<<<"$p");[[ -n $base ]]||base=$default;dry=false
-mapfile -t assignees < <(jq -r '.assignees[]?'<<<"$p");((${#assignees[@]}))||assignees=('@me');mapfile -t labels < <(jq -r '.labels[]?'<<<"$p");mapfile -t reviewers < <(jq -r '.reviewers[]?'<<<"$p");mapfile -t teams < <(jq -r '.teamReviewers[]?'<<<"$p")
+mapfile -t assignees < <(jq -r '.assignees[]?'<<<"$p" | tr -d '');((${#assignees[@]}))||assignees=('@me');mapfile -t labels < <(jq -r '.labels[]?'<<<"$p" | tr -d '');mapfile -t reviewers < <(jq -r '.reviewers[]?'<<<"$p" | tr -d '');mapfile -t teams < <(jq -r '.teamReviewers[]?'<<<"$p" | tr -d '')
 a_seen=0;l_seen=0;r_seen=0;t_seen=0
 while (($#));do case "$1" in
  --issue) shift;issue=${1:?};;--title) shift;title=${1:?};;--body) shift;body=${1:?};;--body-file) shift;body_file=${1:?};;--base) shift;base=${1:?};;
@@ -35,7 +35,7 @@ issue_json=$(gh issue view "$issue" --repo "$repo" --json state,labels,milestone
 [[ -z $(git diff --name-only) ]]||die 'unstaged changes must be staged or reverted';[[ -z $(git ls-files --others --exclude-standard) ]]||die 'untracked files must be staged, ignored, or removed'
 [[ -z $body_file ]]||{ [[ -f $body_file ]]||die "body file not found: $body_file";body=$(cat -- "$body_file");};[[ -n $body ]]||body=$'Closes #'"$issue"$'\n\n## Summary\n\nImplements the bounded delivery.\n\n## Verification\n\n- Local verification completed successfully.\n'
 grep -Eq "(^|[[:space:]])(Closes|Fixes|Resolves)[[:space:]]+#${issue}([^0-9]|$)"<<<"$body"||die "PR body must close issue #$issue";grep -q '^## Summary$'<<<"$body"||die 'PR body requires ## Summary';grep -q '^## Verification$'<<<"$body"||die 'PR body requires ## Verification';grep -Eqi 'TODO|TBD|PLACEHOLDER'<<<"$body"&&die 'PR body contains a placeholder'
-mapfile -t inherited < <(jq -r '.labels[].name'<<<"$issue_json");labels+=("${inherited[@]}");mapfile -t labels < <(printf '%s\n' "${labels[@]}"|awk 'NF&&!x[$0]++');$inherit&&[[ -z $milestone ]]&&milestone=$(jq -r '.milestone.title//empty'<<<"$issue_json")
+mapfile -t inherited < <(jq -r '.labels[].name'<<<"$issue_json" | tr -d '');labels+=("${inherited[@]}");mapfile -t labels < <(printf '%s\n' "${labels[@]}"|awk 'NF&&!x[$0]++');$inherit&&[[ -z $milestone ]]&&milestone=$(jq -r '.milestone.title//empty'<<<"$issue_json")
 printf 'Repository: %s\nBranch: %s\nBase: %s\nIssue: %s\nTitle: %s\nAssignees: %s\nLabels: %s\nMilestone: %s\n' "$repo" "$branch" "$base" "$issue" "$title" "${assignees[*]:-none}" "${labels[*]:-none}" "${milestone:-none}"
 $dry&&exit 0
 "$SCRIPT_DIR/collab-work-verify.sh";phase COMMIT;if ! git diff --cached --quiet;then git commit -m "$title";fi;clean_tree||die 'tree not clean after commit';git push -u origin "$branch"

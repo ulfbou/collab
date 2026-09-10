@@ -8,6 +8,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from collab.github import GitHubClient, GitHubError
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -64,7 +66,7 @@ def git_bash():
 def gh_bin():
     override = os.environ.get('COLLAB_GH_BIN')
     if override:
-        return [git_bash(), override]
+        return [git_bash(), override] if os.name == 'nt' else [override]
     return ['gh']
 
 
@@ -175,8 +177,9 @@ def git_model(root: Path, repo=None, recent=20):
 def github_model(repo, root, recent_closed, selected_issue=None):
     keys = ('repository', 'openIssues', 'openPullRequests',
             'recentlyMergedPullRequests', 'labels', 'milestones')
+    client = GitHubClient(cwd=root, command=gh_bin())
     try:
-        run(gh_bin() + ['auth', 'status'], root)
+        client.authenticate()
     except Exception as e:
         return {
             'schemaVersion': '1.0',
@@ -213,7 +216,7 @@ def github_model(repo, root, recent_closed, selected_issue=None):
     errors = []
     for k, c in q.items():
         try:
-            v = json.loads(run(c, root))
+            v = client.request_json(c[len(gh_bin()):]).value
             st[k] = 'ok'
             if isinstance(v, list):
                 if k in ('openIssues', 'openPullRequests', 'recentlyMergedPullRequests'):
@@ -231,11 +234,10 @@ def github_model(repo, root, recent_closed, selected_issue=None):
     selected_issue_data = None
     if selected_issue is not None:
         try:
-            issue_json = run(gh_bin() + ['issue', 'view', str(selected_issue),
-                                         '--repo', repo,
-                                         '--json', 'number,title,body,state,labels,milestone,assignees,author,createdAt,updatedAt,closedAt,url'],
-                             root)
-            selected_issue_data = json.loads(issue_json)
+            selected_issue_data = client.request_json([
+                'issue', 'view', str(selected_issue), '--repo', repo, '--json',
+                'number,title,body,state,labels,milestone,assignees,author,createdAt,updatedAt,closedAt,url',
+            ]).value
             st['selectedIssue'] = 'ok'
         except Exception as e:
             st['selectedIssue'] = 'failed'
