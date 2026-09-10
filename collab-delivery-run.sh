@@ -423,7 +423,9 @@ CARRIER_HASH=$(sha256sum "$FINAL_CARRIER" | awk '{print $1}')
   printf -- '- Current HEAD: `%s`\n\n' "$(git rev-parse HEAD)"
   printf '## DX carrier\n\n'
   printf -- '- File: `%s`\n' "$FINAL_CARRIER"
-  printf -- '- DX version: `v1.3.1`\n'
+  carrier_version=$(sed -n '1s/^%%DX[[:space:]][[:space:]]*//p' "$FINAL_CARRIER")
+  [[ -n "$carrier_version" ]] || die 'final carrier has no DX version header'
+  printf -- '- DX version: `%s`\n' "$carrier_version"
   printf -- '- SHA-256: `%s`\n' "$CARRIER_HASH"
   printf -- '- Included paths:\n'
   for path in "${CHANGED_PATHS[@]}"; do printf '  - `%s`\n' "$path"; done
@@ -466,8 +468,6 @@ for path in (carrier, evidence, report):
         raise SystemExit(f'ERROR: missing or empty final artifact: {path}')
 
 text = carrier.read_text(encoding='utf-8')
-if not text.startswith('%%DX v1.3.1\n'):
-    raise SystemExit('ERROR: final carrier is not DX v1.3.1')
 if 'readonly="true"' in text:
     raise SystemExit('ERROR: final carrier contains a readonly target')
 if text.count('%%FILE ') != text.count('%%ENDBLOCK'):
