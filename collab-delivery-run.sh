@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROGRAM=$(basename "$0")
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 source "$SCRIPT_DIR/lib-common.sh"
 require_executed
@@ -144,6 +144,9 @@ done
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || die 'not inside a Git repository'
 cd "$ROOT"
 mkdir -p .dx
+RUN_ID=$(collab_run_id)
+RUN_STARTED=$(date +%s%N 2>/dev/null || printf '%s000000000' "$(date +%s)")
+RUN_START_HEAD=$(git rev-parse HEAD)
 
 CARRIER_ABS=$(python3 - "$CARRIER" <<'PY'
 from pathlib import Path
@@ -159,7 +162,7 @@ PY
 LOG_DIR="$ROOT/.dx/${OUTPUT_PREFIX}-run"
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR"
-MASTER_LOG="$LOG_DIR/master.log"
+MASTER_LOG="$ROOT/.dx/${OUTPUT_PREFIX}-master.log"
 FAILURE_REPORT="$ROOT/.dx/${OUTPUT_PREFIX}-failure-report.txt"
 FINAL_CARRIER="$ROOT/.dx/${OUTPUT_PREFIX}-final.dx.txt"
 FINAL_EVIDENCE="$ROOT/.dx/${OUTPUT_PREFIX}-delivery-evidence.txt"
@@ -210,6 +213,21 @@ on_error() {
   local status=$?
   trap - ERR
   write_failure_report "$status"
+  if [[ ! -e "$ROOT/.dx/collab/runs/$RUN_ID/run.json" ]]
+  then
+    collab_record_run       --run-id "$RUN_ID"       --exit-status "$status"       --failure-phase "$CURRENT_PHASE"       --started "$RUN_STARTED"       --start-head "$RUN_START_HEAD"       delivery failure       "$FAILURE_REPORT"       "$MASTER_LOG"
+
+    "$SCRIPT_DIR/collab-artifact-publish.sh"       --run-id "$RUN_ID"       --source ".dx/${OUTPUT_PREFIX}-failure-report.txt"       --stable ".dx/${OUTPUT_PREFIX}-failure-report.txt"       --source ".dx/${OUTPUT_PREFIX}-master.log"       --stable ".dx/${OUTPUT_PREFIX}-master.log"       >/dev/null
+  else
+    printf 'Run %s was already finalized before this failure.\n' "$RUN_ID" >&2
+  fi
+  printf '
+=== FAILURE PACKAGE ===
+Workflow stopped during: %s
+Files to upload for correction:
+' "$CURRENT_PHASE"
+  for file in ".dx/${OUTPUT_PREFIX}-failure-report.txt" ".dx/${OUTPUT_PREFIX}-master.log"; do printf '%s  %s bytes  %s
+' "$file" "$(wc -c < "$file"|tr -d ' ')" "$(sha256sum "$file"|awk '{print $1}')"; done
   exit "$status"
 }
 trap on_error ERR
@@ -496,7 +514,14 @@ print('PASS: final carrier, evidence, and report are complete')
 PY
 
 collab_profile_save pr ISSUE TITLE BRANCH FINAL_REPORT FINAL_EVIDENCE FINAL_CARRIER
-    collab_record_run delivery success "$FINAL_CARRIER" "$FINAL_EVIDENCE" "$FINAL_REPORT" >/dev/null
+collab_record_run --run-id "$RUN_ID" --exit-status 0 --started "$RUN_STARTED" --start-head "$RUN_START_HEAD" delivery success "$FINAL_CARRIER" "$FINAL_EVIDENCE" "$FINAL_REPORT"
+"$SCRIPT_DIR/collab-artifact-publish.sh" --run-id "$RUN_ID" --source ".dx/${OUTPUT_PREFIX}-final.dx.txt" --stable ".dx/${OUTPUT_PREFIX}-final.dx.txt" --source ".dx/${OUTPUT_PREFIX}-delivery-evidence.txt" --stable ".dx/${OUTPUT_PREFIX}-delivery-evidence.txt" --source ".dx/${OUTPUT_PREFIX}-delivery-report.txt" --stable ".dx/${OUTPUT_PREFIX}-delivery-report.txt" >/dev/null
+{
+  printf 'Files to upload (run %s):
+' "$RUN_ID"
+  for file in ".dx/${OUTPUT_PREFIX}-final.dx.txt" ".dx/${OUTPUT_PREFIX}-delivery-evidence.txt" ".dx/${OUTPUT_PREFIX}-delivery-report.txt"; do printf '%s  %s bytes  %s
+' "$file" "$(wc -c < "$file"|tr -d ' ')" "$(sha256sum "$file"|awk '{print $1}')"; done
+} > "$UPLOAD_MANIFEST"
 trap - ERR
 printf '\n=== DELIVERY READY ===\n'
 cat "$UPLOAD_MANIFEST"

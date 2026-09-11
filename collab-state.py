@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -325,12 +326,29 @@ def record_run(root: Path, repository: str, args: argparse.Namespace) -> None:
     run_dir.mkdir(parents=True, exist_ok=False)
 
     try:
+        artifacts_dir = run_dir / "artifacts"
+        artifacts_dir.mkdir(mode=0o700)
         artifacts = []
-        for item in args.artifact:
+        for index, item in enumerate(args.artifact):
             candidate = Path(item)
             absolute = candidate if candidate.is_absolute() else root / candidate
-            display = str(candidate).replace("\\", "/")
-            artifacts.append(file_record(absolute, display))
+            absolute = absolute.resolve()
+            try:
+                display = str(absolute.relative_to(root)).replace("\\", "/")
+            except ValueError as exc:
+                raise Error(f"artifact is outside the repository: {candidate}") from exc
+            source_record = file_record(absolute, display)
+            immutable = artifacts_dir / f"{index:03d}-{absolute.name}"
+            reject_symlink(immutable)
+            with absolute.open("rb") as source, immutable.open("xb") as target:
+                shutil.copyfileobj(source, target)
+                target.flush()
+                os.fsync(target.fileno())
+            immutable_record = file_record(immutable, display)
+            if immutable_record != source_record:
+                raise Error(f"immutable artifact copy differs: {display}")
+            immutable_record["immutablePath"] = str(immutable.relative_to(root)).replace("\\", "/")
+            artifacts.append(immutable_record)
 
         final_head = run("git", "rev-parse", "HEAD")
         if not SHA.fullmatch(final_head):
