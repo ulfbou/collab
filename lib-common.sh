@@ -134,12 +134,27 @@ collab_profile_save() {
 }
 
 collab_record_run() {
-  local kind=$1 status=$2 started start_head run_id arg
-  shift 2
-  started=$(date +%s%N 2>/dev/null || printf '%s000000000' "$(date +%s)")
-  start_head=$(git rev-parse HEAD)
-  run_id=$(collab_run_id)
-  local -a cmd=(record --run-id "$run_id" --tool "$kind" --status "$status" --exit-status 0 --started "$started" --start-head "$start_head")
+  local run_id='' exit_status='' failure_phase='' started='' start_head=''
+  while (($#)); do
+    case "$1" in
+      --run-id|--exit-status|--failure-phase|--started|--start-head)
+        (($# >= 2)) || die "$1 requires a value"
+        case "$1" in
+          --run-id) run_id=$2 ;; --exit-status) exit_status=$2 ;;
+          --failure-phase) failure_phase=$2 ;; --started) started=$2 ;; --start-head) start_head=$2 ;;
+        esac
+        shift 2 ;;
+      *) break ;;
+    esac
+  done
+  (($# >= 2)) || die 'collab_record_run requires KIND STATUS [ARTIFACT ...]'
+  local kind=$1 status=$2 arg; shift 2
+  [[ -n $run_id ]] || run_id=$(collab_run_id)
+  [[ -n $started ]] || started=$(date +%s%N 2>/dev/null || printf '%s000000000' "$(date +%s)")
+  [[ -n $start_head ]] || start_head=$(git rev-parse HEAD)
+  [[ -n $exit_status ]] || { [[ $status == success ]] && exit_status=0 || exit_status=1; }
+  local -a cmd=(record --run-id "$run_id" --tool "$kind" --status "$status" --exit-status "$exit_status" --started "$started" --start-head "$start_head")
+  [[ -z $failure_phase ]] || cmd+=(--failure-phase "$failure_phase")
   for arg in "$@"; do [[ -f $arg ]] && cmd+=(--artifact "$arg"); done
   collab_state "${cmd[@]}" >/dev/null
 }

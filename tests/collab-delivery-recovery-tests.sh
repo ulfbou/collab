@@ -5,7 +5,7 @@ HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-cp "$HERE/collab-delivery-run.sh" "$HERE/collab-dx-inspect.sh" "$HERE/collab-dx-apply-checked.sh" "$HERE/collab-dx-pack.py" "$HERE/collab-state.py" "$HERE/lib-common.sh" "$HERE/dx.py" "$TMP/"
+cp "$HERE/collab-delivery-run.sh" "$HERE/collab-dx-inspect.sh" "$HERE/collab-dx-apply-checked.sh" "$HERE/collab-dx-pack.py" "$HERE/collab-state.py" "$HERE/lib-common.sh" "$HERE/collab-artifact-publish.sh" "$HERE/dx.py" "$TMP/"
 cp -R "$HERE/collab" "$TMP/"
 cd "$TMP"
 
@@ -104,3 +104,10 @@ bash ./collab-dx-inspect.sh .dx/delivery-final.dx.txt --compare-root .
 bash ./collab-dx-inspect.sh .dx/delivery-final.dx.txt --list | tr -d '\r' | grep -Fqx -- 'tracked.txt'
 
 printf 'PASS: delivery recovery defaults, replacement, dedup, and skip-apply equivalence\n'
+
+record=$(find .dx/collab/runs -name run.json -type f | sort | tail -1)
+jq -e '.status=="success" and (.artifacts|length)==3 and all(.artifacts[]; .immutablePath|type=="string")' "$record" >/dev/null
+grep -F 'Files to upload (run ' .dx/delivery-upload-manifest.txt >/dev/null
+for file in .dx/delivery-final.dx.txt .dx/delivery-delivery-evidence.txt .dx/delivery-delivery-report.txt; do [[ -f $file ]]; grep -F "$file" .dx/delivery-upload-manifest.txt >/dev/null; done
+printf 'PASS: delivery advertises stable immutable-backed artifacts
+'
