@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
-import fnmatch
 import hashlib
 import json
 import os
@@ -18,7 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Optional, TextIO, Iterable, List, Dict, Any
 
@@ -260,247 +259,406 @@ def read_entries(path: str) -> tuple[str, list[Entry], int]:
         return parse(f)
 
 
-# ------------------------- Filtering and collection -------------------------
+# ------------------------- Selection pipeline -------------------------
+DEFAULT_EXCLUDES_VERSION = "2.1"
+DEFAULT_EXCLUDES = (".DS_Store", "Thumbs.db", "*~", "*.swp", "*.swo", ".#*", "#*#")
+TERMINAL_OUTCOMES = ("output_excluded", "protected", "hard_excluded", "positive_filter_missed", "soft_excluded", "invalid_object", "unreadable", "binary_skipped", "selected")
 
-def match_pattern(path: str, pattern: str) -> bool:
-    pattern = pattern.replace('\\', '/').removeprefix('./').rstrip('/')
-    if not pattern:
-        return False
-    prefixes = [path] + ['/'.join(PurePosixPath(path).parts[:i]) for i in range(1, len(PurePosixPath(path).parts))]
-    return any(x == pattern or x.startswith(pattern + '/') or fnmatch.fnmatchcase(x, pattern) or ('/' not in pattern and fnmatch.fnmatchcase(PurePosixPath(x).name, pattern)) for x in prefixes)
+@dataclass(frozen=True)
+class SourceProvenance:
+    provider: str
+    operand: str | None = None
+    explicit: bool = False
+    git_status: str | None = None
+    git_source: str | None = None
+
+@dataclass(frozen=True)
+class Candidate:
+    path: str
+    absolute_path: Path
+    provenance: tuple[SourceProvenance, ...]
+
+@dataclass(frozen=True)
+class PatternRule:
+    provider: str
+    pattern: str
+    action: str
+    order: int
+    regex: re.Pattern[str]
+    source: str | None = None
+    line: int | None = None
+
+@dataclass(frozen=True)
+class ExtensionRule:
+    provider: str
+    suffix: str
+    action: str
+    order: int
+
+@dataclass(frozen=True)
+class RuleMatch:
+    provider: str
+    action: str
+    pattern: str | None = None
+    source: str | None = None
+    line: int | None = None
+    overrides: tuple[str, ...] = ()
+
+@dataclass(frozen=True)
+class PathDecision:
+    candidate: Candidate
+    matches: tuple[RuleMatch, ...]
+    positive_filter_present: bool
+    positive_filter_matched: bool
+    explicit_selection_bases: tuple[str, ...]
+    included: bool
+    decisive_provider: str
+    decisive_pattern: str | None
+    terminal_outcome: str
+
+@dataclass(frozen=True)
+class ContentDecision:
+    path_decision: PathDecision
+    filesystem_kind: str | None
+    content_kind: str | None
+    data: bytes | None
+    readonly: bool
+    terminal_outcome: str
+
+@dataclass(frozen=True)
+class SelectionReport:
+    context: "SelectionContext"
+    decisions: tuple[ContentDecision, ...]
+    filter_counts: dict[str, int]
+    rule_match_counts: dict[str, int]
+
+@dataclass(frozen=True)
+class NormalizedPackOptions:
+    source: Path
+    root: Path
+    output: Path
+    source_mode: str
+    paths: tuple[str, ...]
+    only: tuple[str, ...]
+    includes: tuple[PatternRule, ...]
+    excludes: tuple[PatternRule, ...]
+    include_extensions: tuple[ExtensionRule, ...]
+    exclude_extensions: tuple[ExtensionRule, ...]
+    ignore_files: tuple[Path, ...]
+    no_gitignore: bool
+    no_default_excludes: bool
+    unsafe_include_git: bool
+    skip_binary: bool
+    readonly: bool
+    dry_run: bool
+    json: bool
+    explain: str | None
+    quiet: bool
+    verbose: bool
+    force: bool
+
+@dataclass(frozen=True)
+class SelectionContext:
+    options: NormalizedPackOptions
+    selection_root: Path
+    repository_root: Path | None
+    output_resolved: Path | None
+
+
+def _validate_pattern(raw: str, provider: str, order: int, action: str, source: str | None = None, line: int | None = None) -> PatternRule:
+    if not raw or any(ch in raw for ch in ("\0", "\r", "\n")):
+        raise UsageError(f"invalid empty or control-containing pattern: {raw!r}")
+    if raw.startswith("!"):
+        raise UsageError(f"leading ! is not supported for --{provider}; use an ignore file for negation")
+    try:
+        regex = re.compile(_wildmatch_regex(raw))
+    except re.error as exc:
+        raise UsageError(f"malformed pattern {raw!r}: {exc}") from exc
+    return PatternRule(provider, raw, action, order, regex, source, line)
+
+
+def _wildmatch_regex(pattern: str) -> str:
+    anchored = pattern.startswith("/")
+    directory = pattern.endswith("/")
+    body = pattern[1:] if anchored else pattern
+    if directory:
+        body = body[:-1]
+    if not body:
+        raise re.error("pattern has no matchable content")
+    out=[]; i=0
+    while i < len(body):
+        c=body[i]
+        if c == "\\":
+            i += 1
+            if i >= len(body): raise re.error("trailing escape")
+            out.append(re.escape(body[i]))
+        elif c == "*":
+            if i + 1 < len(body) and body[i+1] == "*":
+                while i + 1 < len(body) and body[i+1] == "*": i += 1
+                if i + 1 < len(body) and body[i+1] == "/":
+                    i += 1; out.append("(?:.*/)?")
+                else: out.append(".*")
+            else: out.append("[^/]*")
+        elif c == "?": out.append("[^/]")
+        elif c == "[":
+            j=i+1
+            if j < len(body) and body[j] in "!^": j += 1
+            if j < len(body) and body[j] == "]": j += 1
+            while j < len(body) and body[j] != "]": j += 1
+            if j >= len(body): raise re.error("unterminated bracket expression")
+            stuff=body[i+1:j]
+            if stuff.startswith("!"): stuff="^"+stuff[1:]
+            out.append("["+stuff.replace("\\", "\\\\")+"]"); i=j
+        else: out.append(re.escape(c))
+        i += 1
+    core="".join(out)
+    prefix="^" if anchored or "/" in body else "(?:^|.*/)"
+    suffix="(?:/.*)?$" if directory else "$"
+    return prefix + core + suffix
+
+
+def pattern_matches(path: str, rule: PatternRule) -> bool:
+    return bool(rule.regex.match(path))
 
 
 def normalize_extension(raw: str) -> str:
-    value = raw.strip().lower()
-    if not value:
-        raise UsageError('extension must not be empty')
-    if '/' in value or '\\' in value or any(ch in value for ch in ('\0', '\n', '\r')):
+    value=raw.strip().lower()
+    if not value or value == "." or any(ch in value for ch in ("/", "\\", "\0", "\r", "\n")):
         raise UsageError(f"invalid extension: {raw!r}")
-    if not value.startswith('.'):
-        value = '.' + value
-    return value
+    return value if value.startswith(".") else "."+value
 
 
-def matches_compound_extension(filename: str, ext: str) -> bool:
-    """Check if filename ends with given extension (e.g., '.tar.gz')."""
-    return filename.lower().endswith(ext)
+def _inside(path: Path, root: Path) -> bool:
+    try: path.relative_to(root); return True
+    except ValueError: return False
 
 
-def extension_selected(path: str, include_extensions: list[str], exclude_extensions: list[str]) -> bool:
-    basename = PurePosixPath(path).name.lower()
-    exclude_set = {normalize_extension(value) for value in exclude_extensions}
-    include_set = {normalize_extension(value) for value in include_extensions}
-
-    for ext in exclude_set:
-        if matches_compound_extension(basename, ext):
-            return False
-
-    if include_set:
-        for ext in include_set:
-            if matches_compound_extension(basename, ext):
-                return True
-        return False
-
-    return True
+def _operand(root: Path, raw: str) -> Path:
+    lexical=Path(raw)
+    if not lexical.is_absolute() and ".." in lexical.parts:
+        raise UsageError(f"path operand contains lexical traversal: {raw}")
+    path=lexical if lexical.is_absolute() else root/lexical
+    resolved=path.resolve()
+    if not _inside(resolved, root): raise UsageError(f"path is outside selection root: {raw}")
+    return path
 
 
-def git_changed_paths(root: Path) -> list[str]:
-    """Return list of paths changed according to git status (no deletions)."""
-    p = subprocess.run(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all'],
-                       cwd=root, check=True, stdout=subprocess.PIPE)
-    rec = p.stdout.split(b'\0')
-    out = []
-    i = 0
-    while i < len(rec):
-        r = rec[i]
-        i += 1
-        if not r:
-            continue
-        s = r.decode('utf-8', 'strict')
-        status, path = s[:2], s[3:]
-        if 'D' in status:
-            raise UsageError(f"deletions cannot be represented in a DX carrier: {path}")
-        if status[0] in 'RC' or status[1] in 'RC':
-            if i >= len(rec) or not rec[i]:
-                raise UsageError(f"malformed git rename/copy record: {path}")
-            path = rec[i].decode('utf-8', 'strict')
-            i += 1
-        out.append(safe_user_path(path))
-    return sorted(set(out))
+def _git(args: list[str], cwd: Path, stdin: bytes | None = None, accepted=(0,)) -> subprocess.CompletedProcess[bytes]:
+    try: p=subprocess.run(["git", *args], cwd=cwd, input=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    except FileNotFoundError as exc: raise IOErrorDx("git executable is unavailable") from exc
+    if p.returncode not in accepted:
+        try: detail=p.stderr.decode("utf-8", "strict").strip()
+        except UnicodeDecodeError as exc: raise IOErrorDx("git returned undecodable diagnostics") from exc
+        raise IOErrorDx(f"git {' '.join(args)} failed ({p.returncode}): {detail}")
+    return p
 
 
-def git_repo_root(path: Path) -> Optional[Path]:
-    try:
-        probe = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=path.parent if path.is_file() else path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
-        )
-        if probe.returncode != 0:
-            cwd = path.parent if path.is_file() else path
-            if any((candidate / '.git' / 'HEAD').is_file() for candidate in (cwd, *cwd.parents)):
-                message = probe.stderr.strip() or 'git rev-parse failed'
-                raise IOErrorDx(message)
-            return None
-        return Path(probe.stdout.strip()).resolve()
-    except FileNotFoundError as exc:
-        cwd = path.parent if path.is_file() else path
-        if any((candidate / '.git' / 'HEAD').is_file() for candidate in (cwd, *cwd.parents)):
-            raise IOErrorDx('git executable is unavailable inside a Git repository') from exc
-        return None
+def _repository_root(start: Path) -> Path | None:
+    p=_git(["rev-parse", "--is-inside-work-tree"], start, accepted=(0,128))
+    if p.returncode != 0: return None
+    if p.stdout.decode("ascii", "strict").strip() != "true": return None
+    q=_git(["rev-parse", "--show-toplevel"], start)
+    return Path(q.stdout.decode("utf-8", "strict").strip()).resolve()
 
 
-def git_allowed_paths(root: Path) -> Optional[set[str]]:
-    """Get set of relative paths that are tracked or untracked but not ignored.
-    Returns None if not a Git repository."""
-    try:
-        p = subprocess.run(
-            ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
-            cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
-        )
-        if p.returncode != 0:
-            # If git command failed, raise
-            stderr = p.stderr.decode('utf-8', 'replace').strip()
-            raise IOErrorDx(f"git ls-files failed: {stderr}")
-        paths = set()
-        for line in p.stdout.split(b'\n'):
-            if line:
-                try:
-                    rel = line.decode('utf-8', 'strict').replace('\\', '/')
-                except UnicodeDecodeError as exc:
-                    raise IOErrorDx(f"git returned undecodable path: {line!r}") from exc
-                paths.add(rel)
-        return paths
-    except FileNotFoundError:
-        return None
+def normalize_pack_options(a) -> NormalizedPackOptions:
+    if a.binary and a.skip_binary: raise UsageError("--binary and --skip-binary are mutually exclusive")
+    if a.quiet and a.verbose: raise UsageError("--quiet and --verbose are mutually exclusive")
+    if a.path and a.from_git: raise UsageError("--path and --from-git are mutually exclusive")
+    if a.only and (a.path or a.from_git): raise UsageError("--only is mutually exclusive with --path and --from-git")
+    if a.only and (a.include or a.exclude or a.include_extension or a.exclude_extension or a.ignore_file or a.no_gitignore or a.no_default_excludes or a.no_ignore):
+        raise UsageError("--only is mutually exclusive with include, exclude, extension, and ignore options")
+    if a.unsafe_include_git and not a.force: raise UsageError("--unsafe-include-git requires --force")
+    source_arg=a.source or (a.root if a.root else ".")
+    source_lex=Path(source_arg)
+    if source_lex.is_symlink(): source=source_lex.absolute()
+    else: source=source_lex.resolve()
+    if not source_lex.exists() and not source_lex.is_symlink(): raise IOErrorDx(f"source does not exist: {source_arg}")
+    root=Path(a.root).resolve() if a.root else (source.parent if source_lex.is_file() or source_lex.is_symlink() else source.resolve())
+    if not root.is_dir(): raise UsageError(f"selection root is not a directory: {root}")
+    if not _inside(source.resolve(), root): raise UsageError("SOURCE is outside --root")
+    output=Path(a.output_opt) if a.output_opt else resolve_default_output(False, source)
+    if str(output) != "-" and not output.is_absolute(): output=Path.cwd()/output
+    mode="only" if a.only else "path" if a.path else "git" if a.from_git else "file" if source_lex.is_file() or source_lex.is_symlink() else "walk"
+    inc=tuple(_validate_pattern(x,"include",i,"include") for i,x in enumerate(a.include))
+    exc=tuple(_validate_pattern(x,"exclude",i,"exclude") for i,x in enumerate(a.exclude))
+    ie=tuple(ExtensionRule("include_extension",normalize_extension(x),"include",i) for i,x in enumerate(dict.fromkeys(a.include_extension)))
+    ee=tuple(ExtensionRule("exclude_extension",normalize_extension(x),"exclude",i) for i,x in enumerate(dict.fromkeys(a.exclude_extension)))
+    ignores=tuple(_operand(root,x) for x in a.ignore_file)
+    explain="json" if a.explain == "json" else ("human" if a.explain else None)
+    return NormalizedPackOptions(source,root,output,mode,tuple(a.path),tuple(a.only),inc,exc,ie,ee,ignores,bool(a.no_gitignore or a.no_ignore),bool(a.no_default_excludes or a.no_ignore),a.unsafe_include_git,a.skip_binary,a.readonly,a.dry_run or explain=="json",a.json or explain=="json",explain,a.quiet,a.verbose,a.force)
 
 
-def apply_gitignore_filter(source: Path, candidates: set[str]) -> set[str]:
-    """Return subset of candidates that are not git-ignored untracked files."""
-    if not candidates:
-        return candidates
-    repo_root = git_repo_root(source)
-    if repo_root is None:
-        return candidates  # not inside a repo, no filtering
-    allowed = git_allowed_paths(repo_root)  # may raise on error
-    if allowed is None:
-        return candidates  # git unavailable? Should not happen
-    filtered = set()
-    for name in candidates:
-        abs_path = (source / Path(*PurePosixPath(name).parts)).resolve()
+def build_selection_context(o: NormalizedPackOptions) -> SelectionContext:
+    repo=_repository_root(o.root)
+    out=None if o.output==Path("-") else o.output.resolve()
+    return SelectionContext(o,o.root,repo,out)
+
+
+def _walk(scope: Path, root: Path, unsafe: bool) -> list[Path]:
+    found=[]
+    def onerror(exc): raise IOErrorDx(f"directory traversal failed: {exc}")
+    for directory, dirs, files in os.walk(scope, topdown=True, followlinks=False, onerror=onerror):
+        d=Path(directory)
+        dirs[:]=sorted(x for x in dirs if not (d/x).is_symlink() and (unsafe or x != ".git"))
+        for name in sorted(files):
+            p=d/name
+            if not p.is_symlink(): found.append(p)
+    return found
+
+
+def _contribute(store: dict[str,list[SourceProvenance]], root: Path, path: Path, provenance: SourceProvenance) -> None:
+    try: rel=path.absolute().relative_to(root).as_posix()
+    except ValueError as exc: raise UsageError(f"discovered path is outside selection root: {path}") from exc
+    safe_user_path(rel); store.setdefault(rel,[]).append(provenance)
+
+
+def _git_status_candidates(ctx: SelectionContext, store: dict[str,list[SourceProvenance]]) -> None:
+    if ctx.repository_root is None: raise IOErrorDx("--from-git requires a Git worktree")
+    raw=_git(["status","--porcelain=v1","-z","--untracked-files=all"],ctx.repository_root).stdout
+    records=raw.split(b"\0"); i=0
+    while i < len(records):
+        rec=records[i]; i+=1
+        if not rec: continue
+        try: text=rec.decode("utf-8","strict")
+        except UnicodeDecodeError as exc: raise IOErrorDx("git status returned an undecodable path") from exc
+        if len(text)<4 or text[2] != " ": raise IOErrorDx(f"malformed Git status record: {text!r}")
+        status,path=text[:2],text[3:]; source_name=None
+        if "D" in status: raise UsageError(f"deletions cannot be represented in a DX carrier: {path}")
+        if status[0] in "RC" or status[1] in "RC":
+            if i>=len(records) or not records[i]: raise IOErrorDx("malformed Git rename/copy record")
+            source_name=records[i].decode("utf-8","strict"); i+=1
+        absolute=(ctx.repository_root/Path(*PurePosixPath(path).parts)).absolute()
+        resolved=absolute.resolve()
+        if not _inside(resolved,ctx.selection_root): continue
+        _contribute(store,ctx.selection_root,absolute,SourceProvenance("git",path,False,status,source_name))
+
+
+def discover_candidates(ctx: SelectionContext) -> tuple[Candidate,...]:
+    o=ctx.options; store: dict[str,list[SourceProvenance]]={}
+    if o.source_mode == "git": _git_status_candidates(ctx,store)
+    elif o.source_mode in ("path","only"):
+        provider=o.source_mode
+        for raw in (o.paths if provider=="path" else o.only):
+            p=_operand(o.root,raw)
+            if p.is_symlink(): _contribute(store,o.root,p,SourceProvenance(provider,raw,True)); continue
+            if not p.exists(): raise IOErrorDx(f"selected path does not exist: {raw}")
+            paths=_walk(p,o.root,o.unsafe_include_git) if p.is_dir() else [p]
+            for q in paths:
+                explicit = provider == "only"
+                _contribute(
+                    store,
+                    o.root,
+                    q,
+                    SourceProvenance(provider, raw, explicit),
+                )
+    elif o.source_mode == "file": _contribute(store,o.root,o.source,SourceProvenance("source",str(o.source),True))
+    else:
+        for p in _walk(o.source,o.root,o.unsafe_include_git): _contribute(store,o.root,p,SourceProvenance("walk",str(o.source),False))
+    return tuple(Candidate(path,o.root/Path(*PurePosixPath(path).parts),tuple(store[path])) for path in sorted(store))
+
+
+def _git_ignore(ctx: SelectionContext, candidates: tuple[Candidate,...]) -> dict[str,RuleMatch]:
+    if ctx.options.no_gitignore or ctx.repository_root is None or ctx.options.source_mode=="only": return {}
+    paths=[]; mapping={}
+    for c in candidates:
+        resolved=c.absolute_path.resolve()
+        if _inside(resolved,ctx.repository_root):
+            rel=resolved.relative_to(ctx.repository_root).as_posix(); paths.append(rel); mapping[rel]=c.path
+    if not paths: return {}
+    payload=b"".join(x.encode("utf-8")+b"\0" for x in paths)
+    p=_git(["check-ignore","-z","--stdin","--verbose","--non-matching"],ctx.repository_root,payload,accepted=(0,1))
+    fields=p.stdout.split(b"\0"); result={}
+    if fields and fields[-1]==b"": fields.pop()
+    if len(fields)%4: raise IOErrorDx("malformed NUL-delimited git check-ignore output")
+    for i in range(0,len(fields),4):
+        try: src,lineno,pattern,path=(x.decode("utf-8","strict") for x in fields[i:i+4])
+        except UnicodeDecodeError as exc: raise IOErrorDx("git check-ignore returned undecodable output") from exc
+        if src and pattern and not pattern.startswith("!"):
+            result[mapping[path]]=RuleMatch("gitignore","exclude",pattern,src,int(lineno) if lineno.isdigit() else None)
+    return result
+
+
+def _ignore_file_rules(paths: tuple[Path,...]) -> tuple[PatternRule,...]:
+    rules=[]; order=0
+    for path in paths:
+        try: lines=path.read_text(encoding="utf-8").splitlines()
+        except (OSError,UnicodeError) as exc: raise IOErrorDx(f"cannot read ignore file {path}: {exc}") from exc
+        for number,raw in enumerate(lines,1):
+            if not raw or raw.startswith("#"): continue
+            neg=raw.startswith("!"); pattern=raw[1:] if neg else raw
+            rules.append(_validate_pattern(pattern,"ignore_file",order,"include" if neg else "exclude",str(path),number)); order+=1
+    return tuple(rules)
+
+
+def evaluate_paths(ctx: SelectionContext, candidates: tuple[Candidate,...]) -> tuple[PathDecision,...]:
+    o=ctx.options; git_ignored=_git_ignore(ctx,candidates); ignore_rules=_ignore_file_rules(o.ignore_files)
+    defaults=tuple(_validate_pattern(x,"default",i,"exclude") for i,x in enumerate(DEFAULT_EXCLUDES)) if not o.no_default_excludes and o.source_mode!="only" else ()
+    result=[]
+    for c in candidates:
+        matches=[]; bases=[]
+        if ctx.output_resolved is not None and c.absolute_path.resolve()==ctx.output_resolved:
+            result.append(PathDecision(c,(RuleMatch("output","exclude"),),bool(o.includes or o.include_extensions),False,(),False,"output",None,"output_excluded")); continue
+        if not o.unsafe_include_git and ".git" in PurePosixPath(c.path).parts:
+            result.append(PathDecision(c,(RuleMatch("protected","exclude",".git"),),bool(o.includes or o.include_extensions),False,(),False,"protected",".git","protected")); continue
+        hard=[RuleMatch(r.provider,"exclude",r.pattern) for r in o.excludes if pattern_matches(c.path,r)]
+        hard += [RuleMatch(r.provider,"exclude",r.suffix) for r in o.exclude_extensions if PurePosixPath(c.path).name.lower().endswith(r.suffix)]
+        if hard:
+            result.append(PathDecision(c,tuple(hard),bool(o.includes or o.include_extensions),False,(),False,hard[0].provider,hard[0].pattern,"hard_excluded")); continue
+        positive=[RuleMatch(r.provider,"include",r.pattern) for r in o.includes if pattern_matches(c.path,r)]
+        positive += [RuleMatch(r.provider,"include",r.suffix) for r in o.include_extensions if PurePosixPath(c.path).name.lower().endswith(r.suffix)]
+        present=bool(o.includes or o.include_extensions)
+        if present and not positive:
+            result.append(PathDecision(c,(),True,False,(),False,"positive_filter",None,"positive_filter_missed")); continue
+        matches.extend(positive)
+        for p in c.provenance:
+            if p.explicit: bases.append(p.provider)
+        bases.extend(m.provider for m in positive if m.provider not in bases)
+        soft=[]
+        if c.path in git_ignored and not any(p.git_status and p.git_status != "??" for p in c.provenance): soft.append(git_ignored[c.path])
+        current=None
+        for r in ignore_rules:
+            if pattern_matches(c.path,r): current=RuleMatch(r.provider,r.action,r.pattern,r.source,r.line)
+        if current and current.action=="exclude": soft.append(current)
+        soft.extend(RuleMatch(r.provider,"exclude",r.pattern) for r in defaults if pattern_matches(c.path,r))
+        matches.extend(soft)
+        if soft and not bases:
+            decisive=soft[-1]; result.append(PathDecision(c,tuple(matches),present,bool(positive),tuple(dict.fromkeys(bases)),False,decisive.provider,decisive.pattern,"soft_excluded")); continue
+        reason=positive[0] if positive else RuleMatch("explicit" if bases else "default_selection","include")
+        result.append(PathDecision(c,tuple(matches),present,bool(positive),tuple(dict.fromkeys(bases)),True,reason.provider,reason.pattern,"selected"))
+    return tuple(result)
+
+
+def load_and_classify(ctx: SelectionContext, decisions: tuple[PathDecision,...]) -> tuple[ContentDecision,...]:
+    out=[]
+    for d in decisions:
+        if not d.included:
+            out.append(ContentDecision(d,None,None,None,ctx.options.readonly,d.terminal_outcome)); continue
+        p=d.candidate.absolute_path
+        if p.is_symlink() or not p.is_file(): raise IOErrorDx(f"selected path is not a regular non-symlink file: {d.candidate.path}")
         try:
-            rel_to_repo = abs_path.relative_to(repo_root).as_posix()
-        except ValueError:
-            filtered.add(name)
-            continue
-        if rel_to_repo in allowed:
-            filtered.add(name)
-    return filtered
+            resolved=p.resolve(strict=True)
+            if not _inside(resolved,ctx.selection_root): raise IOErrorDx(f"selected path escaped selection root: {d.candidate.path}")
+            data=p.read_bytes()
+        except OSError as exc: raise IOErrorDx(f"cannot read selected file {d.candidate.path}: {exc}") from exc
+        kind=classify_file(data)
+        terminal="binary_skipped" if kind=="binary" and ctx.options.skip_binary else "selected"
+        out.append(ContentDecision(d,"regular",kind,None if terminal!="selected" else data,ctx.options.readonly,terminal))
+    return tuple(out)
 
 
-DEFAULT_EXCLUDES = ['.git', '.DS_Store', 'Thumbs.db']
+def build_report(ctx: SelectionContext, decisions: tuple[ContentDecision,...]) -> SelectionReport:
+    counts={k:0 for k in TERMINAL_OUTCOMES}; matches={k:0 for k in ("output","protected","exclude","exclude_extension","include","include_extension","gitignore","ignore_file","default")}
+    for d in decisions:
+        counts[d.terminal_outcome]+=1
+        for m in d.path_decision.matches:
+            if m.provider in matches: matches[m.provider]+=1
+    assert len(decisions)==sum(counts.values())
+    return SelectionReport(ctx,decisions,counts,matches)
 
 
-def collect_paths(root: Path, source: Path, explicit: list[str], from_git: bool,
-                  includes: list[str], excludes: list[str],
-                  include_extensions: list[str], exclude_extensions: list[str],
-                  output: Optional[Path], device: bool,
-                  no_gitignore: bool = False, no_default_excludes: bool = False) -> tuple[list[str], dict[str, int]]:
-    """Collect selected paths and return (sorted_paths, stats_counts)."""
-    if explicit and from_git:
-        raise UsageError('--path and --from-git are mutually exclusive')
-
-    # Build initial candidate set
-    if from_git:
-        names = git_changed_paths(root)
-    elif explicit:
-        names = []
-        for raw in explicit:
-            c = root / raw
-            if not c.exists():
-                raise IOErrorDx(f"selected path does not exist: {raw}")
-            if c.is_dir():
-                names += [p.relative_to(root).as_posix() for p in c.rglob('*') if p.is_file()]
-            else:
-                names.append(c.relative_to(root).as_posix())
-    else:
-        if source.is_file():
-            names = [source.relative_to(root).as_posix()]
-        else:
-            names = []
-            for directory, child_dirs, files in os.walk(source, topdown=True, followlinks=False):
-                current = Path(directory)
-                child_dirs[:] = sorted(name for name in child_dirs if name != '.git' and not (current / name).is_symlink())
-                for name in sorted(files):
-                    candidate = current / name
-                    if candidate.is_file() and not candidate.is_symlink():
-                        names.append(candidate.relative_to(source).as_posix())
-
-    all_candidates = set(names)
-
-    # Self-exclusion
-    output_resolved = output.resolve() if output and output != Path('-') else None
-    if output_resolved:
-        all_candidates = {n for n in all_candidates if (root / n).resolve() != output_resolved}
-
-    # Protected exclusions (always applied)
-    protected = {'.git'}
-    if not no_default_excludes:
-        protected.update({'.DS_Store', 'Thumbs.db'})
-    protected_candidates = {n for n in all_candidates if any(part == '.git' for part in PurePosixPath(n).parts) or PurePosixPath(n).name in protected}
-    candidates_after_protected = all_candidates - protected_candidates
-
-    # Explicit excludes (highest priority)
-    explicitly_excluded = {n for n in candidates_after_protected if any(match_pattern(n, pat) for pat in excludes)}
-    candidates_after_explicit_exclude = candidates_after_protected - explicitly_excluded
-
-    # Explicit includes (may re-add ignored files)
-    if includes:
-        explicitly_included = {n for n in candidates_after_explicit_exclude if any(match_pattern(n, pat) for pat in includes)}
-        candidates_after_explicit_include = explicitly_included
-    else:
-        candidates_after_explicit_include = candidates_after_explicit_exclude
-
-    # Apply gitignore (but explicit include can override)
-    git_ignored = set()
-    if not no_gitignore and not explicit and not from_git and not source.is_file():
-        # Determine which candidates are ignored before explicit include
-        full_after_protected_explicit = candidates_after_protected - explicitly_excluded
-        allowed = apply_gitignore_filter(source, full_after_protected_explicit)
-        git_ignored = full_after_protected_explicit - allowed
-        # Remove git-ignored unless they were explicitly included
-        candidates_after_gitignore = {n for n in candidates_after_explicit_include if n not in git_ignored or (includes and any(match_pattern(n, pat) for pat in includes))}
-    else:
-        candidates_after_gitignore = candidates_after_explicit_include
-
-    # Apply default excludes (already protected, but double-check)
-    if not no_default_excludes:
-        candidates_after_gitignore = {n for n in candidates_after_gitignore if not any(match_pattern(n, pat) for pat in DEFAULT_EXCLUDES)}
-
-    # Apply extension filters
-    if include_extensions or exclude_extensions:
-        candidates_final = {n for n in candidates_after_gitignore if extension_selected(n, include_extensions, exclude_extensions)}
-    else:
-        candidates_final = candidates_after_gitignore
-
-    # Compute stats
-    stats = {
-        'protected_excluded': len(protected_candidates),
-        'explicit_excluded': len(explicitly_excluded),
-        'git_ignored': len(git_ignored),
-        'default_excluded': len(protected_candidates) if not no_default_excludes else 0,  # approximate, we'll adjust below
-        'extension_excluded': len(candidates_after_gitignore) - len(candidates_final),
-        'selected': len(candidates_final),
-    }
-    # Correct default_excluded: those that were not git-ignored and not explicit excluded but were in protected
-    if not no_default_excludes:
-        stats['default_excluded'] = len(protected_candidates - set(['.git'])) if False else 0
-        # simpler: we treat protected as both .git and default; we can compute separately:
-        # For reporting, we can count .DS_Store etc separately but not necessary now.
-        stats['protected_excluded'] = len(protected_candidates)
-        stats['default_excluded'] = 0  # we'll not separate .git from others; user sees "protected"
-
-    return sorted(candidates_final), stats
-
+def select_for_pack(ctx: SelectionContext) -> SelectionReport:
+    return build_report(ctx,load_and_classify(ctx,evaluate_paths(ctx,discover_candidates(ctx))))
 
 # ------------------------- Carrier generation -------------------------
 
@@ -600,161 +758,46 @@ def resolve_default_output(device: bool, source: Path) -> Path:
         return Path.cwd() / f'dx-carrier-{highest+1}.dx.txt'
 
 
+def _decision_json(decision: ContentDecision) -> dict[str,Any]:
+    p=decision.path_decision
+    return {"path":p.candidate.path,"included":decision.terminal_outcome=="selected","terminal_outcome":decision.terminal_outcome,"explicit_selection_bases":list(p.explicit_selection_bases),"decisive_reason":{"provider":p.decisive_provider,"pattern":p.decisive_pattern},"matches":[{"provider":m.provider,"pattern":m.pattern,"action":m.action,"source":m.source,"line":m.line,"overrides":list(m.overrides)} for m in p.matches]}
+
+
 def pack_command(a) -> int:
-    # Validate flags
-    if a.binary and a.skip_binary:
-        raise UsageError('--binary and --skip-binary are mutually exclusive')
-    if a.quiet and a.verbose:
-        raise UsageError('--quiet and --verbose are mutually exclusive')
-
-    source_arg = a.source or (a.root if a.root else '.')
-    source = Path(source_arg).resolve()
-    if not source.exists():
-        raise IOErrorDx(f"source does not exist: {source_arg}")
-
-    # Determine root and source relationship
-    if a.root:
-        root = Path(a.root).resolve()
-    else:
-        if source.is_file():
-            root = source.parent
-        else:
-            root = source
-
-    # Determine output
-    if a.output_opt:
-        output = Path(a.output_opt)
-        if str(output) == '-':
-            output = Path('-')
-        elif not output.is_absolute():
-            output = Path.cwd() / output
-        device = False
-    else:
-        termux_downloads = Path('~/storage/downloads').expanduser()
-        if termux_downloads.exists() and not a.root and not a.path and not a.from_git:
-            output = resolve_default_output(device=True, source=source)
-            device = True
-        else:
-            output = resolve_default_output(device=False, source=source)
-            device = False
-            if not a.quiet:
-                print("Notice: Termux download folder not found; writing to the current directory.", file=sys.stderr)
-
-    # Collect paths
-    names, stats = collect_paths(
-        root=root,
-        source=source,
-        explicit=a.path,
-        from_git=a.from_git,
-        includes=a.include,
-        excludes=a.exclude,
-        include_extensions=a.include_extension,
-        exclude_extensions=a.exclude_extension,
-        output=output,
-        device=device,
-        no_gitignore=a.no_gitignore,
-        no_default_excludes=a.no_default_excludes,
-    )
-    if not names:
-        raise IOErrorDx('no files selected after applying ignore and filter rules')
-
-    # Classify files once
-    file_info = []
-    for name in names:
-        target = (root / name) if (a.path or a.from_git or a.root or source.is_file()) else (source / name)
-        if target.is_symlink() or not target.is_file():
-            raise IOErrorDx(f"selected path is not a regular file: {name}")
-        data = target.read_bytes()
-        classification = classify_file(data)
-        file_info.append((name, data, classification))
-
-    # Binary policy
-    include_binary = a.binary or not a.skip_binary
-    omitted_info = []
-    if not include_binary:
-        omitted_info = [(n, d, c) for n, d, c in file_info if c == 'binary']
-        file_info = [(n, d, c) for n, d, c in file_info if c == 'text']
-        omitted = len(omitted_info)
-        if omitted and not a.quiet:
-            for name, _, _ in omitted_info:
-                print(f"Omitted non-UTF-8: {name}", file=sys.stderr)
-    else:
-        omitted = 0
-
-    if not file_info:
-        raise IOErrorDx('no representable files selected')
-
-    count = len(file_info)
-    text_count = sum(1 for _, _, c in file_info if c == 'text')
-    binary_count = count - text_count
-
-    # Dry-run
-    if a.dry_run:
-        if a.json:
-            result = {
-                "schema_version": 1,
-                "command": "pack",
-                "dry_run": True,
-                "source": str(source),
-                "root": str(root),
-                "output": str(output) if output != Path('-') else '-',
-                "selected_files": count,
-                "text_files": text_count,
-                "binary_files": binary_count,
-                "skipped_files": omitted,
-                "filter_counts": stats,
-                "files": [{"path": n, "type": c} for n, _, c in file_info],
-            }
-            json.dump(result, sys.stdout, indent=2)
-            sys.stdout.write('\n')
-        elif not a.quiet:
-            plan = f"DX carrier plan\n"
-            plan += f"Source: {source}\n"
-            plan += f"Root: {root}\n"
-            plan += f"Output: {output if output != Path('-') else 'stdout'}\n\n"
-            plan += f"Selected files: {count}\n"
-            plan += f"UTF-8 text files: {text_count}\n"
-            plan += f"Binary files encoded as base64: {binary_count}\n"
-            plan += f"Git-ignored files excluded: {stats['git_ignored']}\n"
-            plan += f"Default-excluded files: {stats['protected_excluded']}\n"
-            plan += f"Explicitly excluded files: {stats['explicit_excluded']}\n"
-            plan += f"Unreadable files: 0\n"
-            plan += f"Estimated input size: {sum(len(d) for _, d, _ in file_info) // 1024} KiB\n\n"
-            plan += "Files to include:\n"
-            for name, _, c in file_info:
-                plan += f"  {name}"
-                if c == 'binary':
-                    plan += " (base64)"
-                plan += "\n"
-            plan += "\nNo files were written."
-            print(plan, file=sys.stderr)
+    o=normalize_pack_options(a); ctx=build_selection_context(o); report=select_for_pack(ctx)
+    selected=[d for d in report.decisions if d.terminal_outcome=="selected"]
+    if o.explain=="human":
+        for d in report.decisions:
+            p=d.path_decision
+            print(f"{p.candidate.path}  {'include' if d.terminal_outcome=='selected' else 'exclude'}  {p.decisive_provider}{' '+p.decisive_pattern if p.decisive_pattern else ''}",file=sys.stderr)
+    if o.dry_run:
+        if o.json:
+            json.dump({"schema_version":2,"command":"pack","dry_run":True,"selection_root":str(ctx.selection_root),"source_mode":o.source_mode,"candidate_count":len(report.decisions),"filter_counts":report.filter_counts,"rule_match_counts":report.rule_match_counts,"decisions":[_decision_json(d) for d in report.decisions],"selected_files":len(selected),"text_files":sum(d.content_kind=="text" and d.terminal_outcome=="selected" for d in report.decisions),"binary_files":sum(d.content_kind=="binary" and d.terminal_outcome=="selected" for d in report.decisions),"skipped_files":report.filter_counts["binary_skipped"],"files":[{"path":d.path_decision.candidate.path,"type":d.content_kind} for d in selected]},sys.stdout,indent=2);sys.stdout.write("\n")
+        elif not o.quiet:
+            print(f"DX carrier plan\nSource: {o.source}\nRoot: {o.root}\nOutput: {o.output if o.output!=Path('-') else 'stdout'}\n\nSelected files: {len(selected)}\nUTF-8 text files: {sum(d.content_kind=='text' for d in selected)}\nBinary files encoded as base64: {sum(d.content_kind=='binary' for d in selected)}\nGit-ignored files excluded: {report.rule_match_counts['gitignore']}\nDefault-excluded files: {report.rule_match_counts['default']}\nExplicitly excluded files: {report.filter_counts['hard_excluded']}\nUnreadable files: {report.filter_counts['unreadable']}\n\nNo files were written.",file=sys.stderr)
+        if not selected: raise IOErrorDx(_empty_message(report))
         return 0
-
-    # Actual writing
+    if not selected: raise IOErrorDx(_empty_message(report))
+    if o.skip_binary and not o.quiet:
+        for d in report.decisions:
+            if d.terminal_outcome == 'binary_skipped': print(f"Omitted non-UTF-8: {d.path_decision.candidate.path}", file=sys.stderr)
     def writer(h):
-        h.write(f'%%DX {VERSION}\n')
-        for name, data, _ in file_info:
-            encode_entry(h, name, data, a.readonly)
-        h.write('%%END\n')
-
-    if output == Path('-'):
-        if not a.quiet:
-            print("Writing carrier to stdout", file=sys.stderr)
-        write_atomic(output, a.force, writer)
-    else:
-        # Ensure parent directory exists (only for actual write)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        existed = output.exists()
-        write_atomic(output, a.force, writer)
-        if a.quiet:
-            print(output)
-        else:
-            print(f"DX carrier {'replaced' if existed else 'created'}: {output}", file=sys.stderr)
-            print(f"Included: {count} files", file=sys.stderr)
-            print(f"Skipped non-UTF-8: {omitted} files", file=sys.stderr)
-            print(f"Next: dx.py inspect \"{output}\"", file=sys.stderr)
+        h.write(f"%%DX {VERSION}\n")
+        for d in selected: encode_entry(h,d.path_decision.candidate.path,d.data or b"",o.readonly)
+        h.write("%%END\n")
+    if o.output!=Path("-"): o.output.parent.mkdir(parents=True,exist_ok=True)
+    existed=o.output.exists() if o.output!=Path("-") else False
+    write_atomic(o.output,o.force,writer)
+    if o.output!=Path("-"):
+        if o.quiet: print(o.output)
+        else: print(f"DX carrier {'replaced' if existed else 'created'}: {o.output}\nIncluded: {len(selected)} files\nSkipped non-UTF-8: {report.filter_counts['binary_skipped']} files\nNext: dx.py inspect \"{o.output}\"",file=sys.stderr)
     return 0
 
+
+def _empty_message(report: SelectionReport) -> str:
+    if not report.decisions: return "no candidates discovered"
+    if any(d.path_decision.included for d in report.decisions): return "all path-selected files were removed by content policy"
+    return "all candidates were excluded by path rules"
 
 def apply_unpack_common(a, is_apply: bool) -> int:
     # read carrier
@@ -1064,6 +1107,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('-r', '--root', help='Advanced: path mapping root')
     p.add_argument('-p', '--path', action='append', default=[], help='Advanced: exact file or folder to pack (repeatable)')
     p.add_argument('-g', '--from-git', action='store_true', help='Advanced: pack Git changes')
+    p.add_argument('--only', action='append', default=[], metavar='PATH', help='Isolated explicit file or directory source (repeatable)')
     p.add_argument('-i', '--include', action='append', default=[], help='Include only paths matching PATTERN (repeatable)')
     p.add_argument('-I', '--exclude', action='append', default=[], help='Exclude paths matching PATTERN (repeatable)')
     p.add_argument('-x', '--include-extension', action='append', default=[], metavar='EXT', help='Include only files with extension')
@@ -1073,6 +1117,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--readonly', action='store_true', help='Mark all entries as read-only')
     p.add_argument('-G', '--no-gitignore', action='store_true', help='Do not apply Git ignore rules')
     p.add_argument('--no-default-excludes', action='store_true', help='Do not apply default excludes')
+    p.add_argument('--ignore-file', action='append', default=[], metavar='FILE', help='DX ignore rules relative to selection root (repeatable)')
+    p.add_argument('--no-ignore', action='store_true', help='Disable Git-ignore and default excludes')
+    p.add_argument('--unsafe-include-git', action='store_true', help='Disable only protected .git exclusion; requires --force')
+    p.add_argument('--explain', nargs='?', const='human', choices=('human','json'), help='Explain every candidate; json implies --dry-run --json')
     p.add_argument('-n', '--dry-run', action='store_true', help='Show plan without writing')
     p.add_argument('-f', '--force', action='store_true', help='Overwrite existing output')
     p.add_argument('-j', '--json', action='store_true', help='Output plan as JSON (with --dry-run)')

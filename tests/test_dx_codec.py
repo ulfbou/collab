@@ -89,11 +89,15 @@ class DxCodecTests(unittest.TestCase):
         with self.assertRaisesRegex(DX.DxError, "unterminated file block"):
             self.parse('%%FILE path="sample.txt"\n    value\n')
 
-    def test_pattern_selection_characterization(self):
-        self.assertTrue(DX.match_pattern("src/tool.py", "*.py"))
-        self.assertTrue(DX.match_pattern("src/tool.py", "src"))
-        self.assertFalse(DX.match_pattern("src/tool.py", "tests"))
-        self.assertTrue(DX.match_pattern("src/tool.py", "src/**"))
+    def test_wildmatch_pattern_contract(self):
+        suffix = DX._validate_pattern("*.py", "include", 0, "include")
+        directory = DX._validate_pattern("src/", "include", 0, "include")
+        unrelated = DX._validate_pattern("tests/", "include", 0, "include")
+        recursive = DX._validate_pattern("src/**", "include", 0, "include")
+        self.assertTrue(DX.pattern_matches("src/tool.py", suffix))
+        self.assertTrue(DX.pattern_matches("src/tool.py", directory))
+        self.assertFalse(DX.pattern_matches("src/tool.py", unrelated))
+        self.assertTrue(DX.pattern_matches("src/tool.py", recursive))
 
 
 if __name__ == "__main__":
