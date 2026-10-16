@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/current-state.schema.json",
+  "title": "Current State Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "captureId",
+    "stateIdentity",
+    "stateIdentityNormalizationVersion",
+    "observations",
+    "relationships",
+    "controllingState",
+    "workingState",
+    "candidate",
+    "classifications",
+    "acceptedHistory",
+    "verification",
+    "completeness",
+    "consistency",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "captureId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stateIdentity": {
+      "type": "string",
+      "pattern": "^sha256:v1:[0-9a-f]{64}$"
+    },
+    "stateIdentityNormalizationVersion": {
+      "const": "1"
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "capturedAt",
+        "repository",
+        "git",
+        "hostedState",
+        "selectedFiles",
+        "configuration"
+      ],
+      "properties": {
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "nameWithOwner",
+            "origin",
+            "defaultBranch"
+          ],
+          "properties": {
+            "nameWithOwner": {
+              "type": "string"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "defaultBranch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "git": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "currentBranch",
+            "head",
+            "workingTree",
+            "statusPorcelain",
+            "trackedTree",
+            "recentCommits"
+          ]
+        },
+        "hostedState": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "schemaVersion",
+            "repository",
+            "requested",
+            "available",
+            "queryStatus",
+            "errors",
+            "data",
+            "selectedIssue"
+          ]
+        },
+        "selectedFiles": {
+          "type": "array"
+        },
+        "configuration": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "includes",
+            "excludes",
+            "maxBytes",
+            "recentCommits",
+            "github",
+            "consumerRoot",
+            "consumerIncludes",
+            "withFiles",
+            "selectedIssue",
+            "recentClosed"
+          ]
+        },
+        "outputPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rendering": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "relationships": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "providers",
+        "consumers"
+      ]
+    },
+    "controllingState": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "repository",
+        "git",
+        "hostedState"
+      ],
+      "properties": {
+        "repository": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "nameWithOwner",
+            "origin",
+            "defaultBranch"
+          ]
+        },
+        "git": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "currentBranch",
+            "defaultBranch",
+            "head",
+            "workingTree"
+          ]
+        },
+        "hostedState": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "available",
+            "requested",
+            "selectedIssue"
+          ]
+        }
+      }
+    },
+    "workingState": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "selectedFiles",
+        "statusPorcelain",
+        "trackedTree"
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "selectedIssue",
+        "selectedFiles",
+        "configuration"
+      ]
+    },
+    "classifications": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "workingTree",
+        "hostedState",
+        "selectedIssue",
+        "selectedFiles"
+      ]
+    },
+    "acceptedHistory": {
+      "type": "array"
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "identityNormalization",
+        "compatibilityProjection",
+        "mutationSentinel"
+      ]
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "observed",
+        "missing",
+        "unavailable"
+      ]
+    },
+    "consistency": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "status",
+        "conflicts"
+      ]
+    },
+    "limitations": {
+      "type": "array"
+    }
+  }
+}

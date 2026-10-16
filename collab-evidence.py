@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -9,13 +10,20 @@ import re
 import shutil
 import subprocess
 
+from collab.artifacts import canonical_json_bytes
 from collab.github import GitHubClient, GitHubError
+import secrets
 import tempfile
 from pathlib import Path, PurePosixPath
 
 
 class Error(Exception):
     pass
+
+
+CURRENT_STATE_SCHEMA_VERSION = '1.0'
+STATE_IDENTITY_NORMALIZATION_VERSION = '1'
+STATE_IDENTITY_PREFIX = f'sha256:v{STATE_IDENTITY_NORMALIZATION_VERSION}:'
 
 
 def run(args, cwd=None):
@@ -298,6 +306,127 @@ def selected(root, tracked, includes, excludes, max_bytes, with_files=True):
     return sorted(out, key=lambda x: x['path'])
 
 
+def current_state_capture_id() -> str:
+    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+    return f'capture:{stamp}-{secrets.token_hex(4)}'
+
+
+def current_state_semantic_projection(record):
+    return {
+        'schemaVersion': CURRENT_STATE_SCHEMA_VERSION,
+        'stateIdentityNormalizationVersion': STATE_IDENTITY_NORMALIZATION_VERSION,
+        'observations': {
+            'repository': record['observations']['repository'],
+            'git': record['observations']['git'],
+            'hostedState': record['observations']['hostedState'],
+            'selectedFiles': record['observations']['selectedFiles'],
+            'configuration': record['observations']['configuration'],
+        },
+        'relationships': record['relationships'],
+        'controllingState': record['controllingState'],
+        'workingState': record['workingState'],
+        'candidate': record['candidate'],
+        'classifications': record['classifications'],
+        'acceptedHistory': record['acceptedHistory'],
+        'verification': record['verification'],
+        'completeness': record['completeness'],
+        'consistency': record['consistency'],
+        'limitations': record['limitations'],
+    }
+
+
+def current_state_identity(record):
+    digest = hashlib.sha256(canonical_json_bytes(current_state_semantic_projection(record))).hexdigest()
+    return STATE_IDENTITY_PREFIX + digest
+
+
+def current_state_record(m, *, capture_id=None, output_path=None, rendering=None):
+    git = copy.deepcopy(m['git'])
+    github = copy.deepcopy(m['github'])
+    selected_files = copy.deepcopy(m['selectedFiles'])
+    relationships = copy.deepcopy(m['relationships'])
+    configuration = copy.deepcopy(m.get('configuration', {}))
+    repository = {
+        'nameWithOwner': git['repository'],
+        'origin': git['origin'],
+        'defaultBranch': git['defaultBranch'],
+    }
+    observations = {
+        'capturedAt': m['generatedAt'],
+        'repository': copy.deepcopy(repository),
+        'git': {
+            'currentBranch': git['currentBranch'],
+            'head': git['head'],
+            'workingTree': git['workingTree'],
+            'statusPorcelain': git['statusPorcelain'],
+            'trackedTree': git['trackedTree'],
+            'recentCommits': git['recentCommits'],
+        },
+        'hostedState': github,
+        'selectedFiles': copy.deepcopy(selected_files),
+        'configuration': copy.deepcopy(configuration),
+    }
+    if output_path is not None:
+        observations['outputPath'] = output_path
+    if rendering is not None:
+        observations['rendering'] = copy.deepcopy(rendering)
+    record = {
+        'schemaVersion': CURRENT_STATE_SCHEMA_VERSION,
+        'captureId': capture_id or current_state_capture_id(),
+        'stateIdentityNormalizationVersion': STATE_IDENTITY_NORMALIZATION_VERSION,
+        'observations': observations,
+        'relationships': relationships,
+        'controllingState': {
+            'repository': copy.deepcopy(repository),
+            'git': {
+                'currentBranch': git['currentBranch'],
+                'defaultBranch': git['defaultBranch'],
+                'head': git['head'],
+                'workingTree': git['workingTree'],
+            },
+            'hostedState': {
+                'available': github.get('available'),
+                'requested': github.get('requested'),
+                'selectedIssue': copy.deepcopy(github.get('selectedIssue')),
+            },
+        },
+        'workingState': {
+            'selectedFiles': copy.deepcopy(selected_files),
+            'statusPorcelain': git['statusPorcelain'],
+            'trackedTree': git['trackedTree'],
+        },
+        'candidate': {
+            'selectedIssue': copy.deepcopy(github.get('selectedIssue')),
+            'selectedFiles': copy.deepcopy(selected_files),
+            'configuration': copy.deepcopy(configuration),
+        },
+        'classifications': {
+            'workingTree': git['workingTree'],
+            'hostedState': 'available' if github.get('available') else 'unavailable',
+            'selectedIssue': 'present' if github.get('selectedIssue') is not None else 'absent',
+            'selectedFiles': 'present' if selected_files else 'absent',
+        },
+        'acceptedHistory': [],
+        'verification': {
+            'identityNormalization': f'sha256:v{STATE_IDENTITY_NORMALIZATION_VERSION}',
+            'compatibilityProjection': 'repository-state.json',
+            'mutationSentinel': 'not-applied',
+        },
+        'completeness': {
+            'observed': ['repository', 'git', 'hostedState', 'selectedFiles', 'configuration'],
+            'missing': [],
+            'unavailable': [] if github.get('available') else ['hostedState'],
+        },
+        'consistency': {
+            'status': 'consistent' if not github.get('errors') else 'limited',
+            'conflicts': copy.deepcopy(github.get('errors', [])),
+        },
+        'limitations': [] if github.get('available') else ['hosted state unavailable'],
+    }
+    record['stateIdentity'] = current_state_identity(record)
+    return record
+
+
 def consumer(root: Path, includes, max_bytes, with_files=True):
     g = git_model(root)
     return {
@@ -374,6 +503,19 @@ def collect(
             consumer(Path(consumer_root).resolve(), consumer_includes or [], max_bytes, with_files)
         )
 
+    configuration = {
+        'includes': list(includes or []),
+        'excludes': list(excludes or []),
+        'maxBytes': max_bytes,
+        'recentCommits': recent,
+        'github': github,
+        'consumerRoot': str(Path(consumer_root).resolve()) if consumer_root else None,
+        'consumerIncludes': list(consumer_includes or []),
+        'withFiles': with_files,
+        'selectedIssue': selected_issue,
+        'recentClosed': recent_closed,
+    }
+
     selected_files = selected(root, g['trackedTree'], includes or [], excludes or [],
                               max_bytes, with_files)
 
@@ -384,24 +526,28 @@ def collect(
         'github': gh,
         'selectedFiles': selected_files,
         'relationships': rel,
+        'configuration': configuration,
         'selectedIssue': gh.get('selectedIssue'),
     }
 
 
 def repository_state(m):
-    d = m['github']['data']
+    record = m if isinstance(m, dict) and 'stateIdentity' in m and 'observations' in m else current_state_record(m)
+    d = record['observations']['hostedState']['data']
+    git = record['controllingState']['git']
+    repository = record['controllingState']['repository']
     return {
         'schemaVersion': '1.0',
-        'generatedAt': m['generatedAt'],
+        'generatedAt': record['observations']['capturedAt'],
         'repository': {
-            'nameWithOwner': m['git']['repository'],
-            'defaultBranch': m['git']['defaultBranch'],
-            'currentBranch': m['git']['currentBranch'],
-            'head': m['git']['head'],
-            'workingTree': m['git']['workingTree'],
+            'nameWithOwner': repository['nameWithOwner'],
+            'defaultBranch': repository['defaultBranch'],
+            'currentBranch': git['currentBranch'],
+            'head': git['head'],
+            'workingTree': git['workingTree'],
         },
         'planning': {
-            'githubAvailable': m['github']['available'],
+            'githubAvailable': record['observations']['hostedState']['available'],
             'openIssues': d.get('openIssues', []),
             'openMilestones': d.get('milestones', []),
             'openPullRequests': d.get('openPullRequests', []),
@@ -412,7 +558,7 @@ def repository_state(m):
             'githubData': 'github-evidence.json',
             'collaborationContract': 'collaboration-contract.dx.txt',
         },
-        'relationships': m['relationships'],
+        'relationships': record['relationships'],
         'requestedOutcome': {
             'mode': 'SELECT_OR_PREPARE_NEXT_WORK',
             'maximumConcurrentSelections': 1,
