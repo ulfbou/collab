@@ -27,7 +27,7 @@
     },
     "captureId": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^capture:[0-9]{8}T[0-9]{6}\\.[0-9]{6}Z-[0-9a-f]{8}$"
     },
     "stateIdentity": {
       "type": "string",
@@ -38,7 +38,7 @@
     },
     "observations": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "capturedAt",
         "repository",
@@ -52,9 +52,19 @@
           "type": "string",
           "format": "date-time"
         },
+        "outputPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rendering": {
+          "type": "object",
+          "additionalProperties": true
+        },
         "repository": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "nameWithOwner",
             "origin",
@@ -77,7 +87,7 @@
         },
         "git": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "currentBranch",
             "head",
@@ -85,28 +95,227 @@
             "statusPorcelain",
             "trackedTree",
             "recentCommits"
-          ]
+          ],
+          "properties": {
+            "currentBranch": {
+              "type": "string"
+            },
+            "head": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "workingTree": {
+              "enum": [
+                "CLEAN",
+                "DIRTY"
+              ]
+            },
+            "statusPorcelain": {
+              "type": "string"
+            },
+            "trackedTree": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "recentCommits": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sha",
+                  "date",
+                  "subject"
+                ],
+                "properties": {
+                  "sha": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "subject": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
         },
         "hostedState": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "schemaVersion",
             "repository",
             "requested",
             "available",
+            "selectedIssueRequested",
             "queryStatus",
             "errors",
             "data",
             "selectedIssue"
-          ]
+          ],
+          "properties": {
+            "schemaVersion": {
+              "const": "1.0"
+            },
+            "repository": {
+              "type": "string"
+            },
+            "requested": {
+              "type": "boolean"
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "selectedIssueRequested": {
+              "type": "boolean"
+            },
+            "queryStatus": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "repository": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "openIssues": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "openPullRequests": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "recentlyMergedPullRequests": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "labels": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "milestones": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                },
+                "selectedIssue": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "unavailable",
+                    "not_requested",
+                    "not_applicable"
+                  ]
+                }
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "section",
+                  "error"
+                ],
+                "properties": {
+                  "section": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "selectedIssue": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true
+            }
+          }
         },
         "selectedFiles": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "status"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "size": {
+                "type": "integer"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "status": {
+                "enum": [
+                  "included",
+                  "omitted",
+                  "missing"
+                ]
+              },
+              "content": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
         },
         "configuration": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "includes",
             "excludes",
@@ -118,31 +327,108 @@
             "withFiles",
             "selectedIssue",
             "recentClosed"
-          ]
-        },
-        "outputPath": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "rendering": {
-          "type": "object",
-          "additionalProperties": true
+          ],
+          "properties": {
+            "includes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excludes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "maxBytes": {
+              "type": "integer"
+            },
+            "recentCommits": {
+              "type": "integer"
+            },
+            "github": {
+              "type": "boolean"
+            },
+            "consumerRoot": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "consumerIncludes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "withFiles": {
+              "type": "boolean"
+            },
+            "selectedIssue": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "recentClosed": {
+              "type": "integer"
+            }
+          }
         }
       }
     },
     "relationships": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "providers",
         "consumers"
-      ]
+      ],
+      "properties": {
+        "providers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "consumers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     },
     "controllingState": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "repository",
         "git",
@@ -151,93 +437,586 @@
       "properties": {
         "repository": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "nameWithOwner",
             "origin",
             "defaultBranch"
-          ]
+          ],
+          "properties": {
+            "nameWithOwner": {
+              "type": "string"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "defaultBranch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         },
         "git": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "currentBranch",
             "defaultBranch",
             "head",
             "workingTree"
-          ]
+          ],
+          "properties": {
+            "currentBranch": {
+              "type": "string"
+            },
+            "defaultBranch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "head": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "workingTree": {
+              "enum": [
+                "CLEAN",
+                "DIRTY"
+              ]
+            }
+          }
         },
         "hostedState": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": [
             "available",
             "requested",
             "selectedIssue"
-          ]
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "requested": {
+              "type": "boolean"
+            },
+            "selectedIssue": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true
+            }
+          }
         }
       }
     },
     "workingState": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "selectedFiles",
         "statusPorcelain",
         "trackedTree"
-      ]
+      ],
+      "properties": {
+        "selectedFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selectedFileRecord"
+          }
+        },
+        "statusPorcelain": {
+          "type": "string"
+        },
+        "trackedTree": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "candidate": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "selectedIssue",
         "selectedFiles",
         "configuration"
-      ]
+      ],
+      "properties": {
+        "selectedIssue": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true
+        },
+        "selectedFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selectedFileRecord"
+          }
+        },
+        "configuration": {
+          "$ref": "#/$defs/configurationRecord"
+        }
+      }
     },
     "classifications": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "workingTree",
         "hostedState",
         "selectedIssue",
         "selectedFiles"
-      ]
+      ],
+      "properties": {
+        "workingTree": {
+          "$ref": "#/$defs/classificationEntry"
+        },
+        "hostedState": {
+          "$ref": "#/$defs/classificationEntry"
+        },
+        "selectedIssue": {
+          "$ref": "#/$defs/classificationEntry"
+        },
+        "selectedFiles": {
+          "$ref": "#/$defs/classificationEntry"
+        }
+      }
     },
     "acceptedHistory": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/stateTransitionRecord"
+      }
     },
     "verification": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "identityNormalization",
         "compatibilityProjection",
         "mutationSentinel"
-      ]
+      ],
+      "properties": {
+        "identityNormalization": {
+          "type": "string"
+        },
+        "compatibilityProjection": {
+          "const": "repository-state.json"
+        },
+        "mutationSentinel": {
+          "$ref": "#/$defs/mutationSentinel"
+        }
+      }
     },
     "completeness": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
-        "observed",
-        "missing",
-        "unavailable"
-      ]
+        "hosted",
+        "selectedFiles",
+        "configuration"
+      ],
+      "properties": {
+        "hosted": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "overall",
+            "domains"
+          ],
+          "properties": {
+            "overall": {
+              "enum": [
+                "observed",
+                "partial",
+                "unavailable",
+                "not_requested",
+                "not_applicable"
+              ]
+            },
+            "domains": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "repository",
+                "openIssues",
+                "openPullRequests",
+                "recentlyMergedPullRequests",
+                "labels",
+                "milestones",
+                "selectedIssue"
+              ],
+              "properties": {
+                "repository": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "openIssues": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "openPullRequests": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "recentlyMergedPullRequests": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "labels": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "milestones": {
+                  "$ref": "#/$defs/completenessEntry"
+                },
+                "selectedIssue": {
+                  "$ref": "#/$defs/completenessEntry"
+                }
+              }
+            }
+          }
+        },
+        "selectedFiles": {
+          "$ref": "#/$defs/completenessEntry"
+        },
+        "configuration": {
+          "$ref": "#/$defs/completenessEntry"
+        }
+      }
     },
     "consistency": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": [
         "status",
         "conflicts"
-      ]
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "consistent",
+            "limited",
+            "conflicted"
+          ]
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/conflictEntry"
+          }
+        }
+      }
     },
     "limitations": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/limitationEntry"
+      }
+    }
+  },
+  "$defs": {
+    "ruleRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "classificationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "evidence",
+        "rule"
+      ],
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "rule": {
+          "$ref": "#/$defs/ruleRef"
+        }
+      }
+    },
+    "completenessEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "requested",
+        "evidence",
+        "rule"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "observed",
+            "failed",
+            "unavailable",
+            "not_requested",
+            "not_applicable"
+          ]
+        },
+        "requested": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "rule": {
+          "$ref": "#/$defs/ruleRef"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "selectedFileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "status"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "enum": [
+            "included",
+            "omitted",
+            "missing"
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "configurationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "includes",
+        "excludes",
+        "maxBytes",
+        "recentCommits",
+        "github",
+        "consumerRoot",
+        "consumerIncludes",
+        "withFiles",
+        "selectedIssue",
+        "recentClosed"
+      ],
+      "properties": {
+        "includes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excludes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxBytes": {
+          "type": "integer"
+        },
+        "recentCommits": {
+          "type": "integer"
+        },
+        "github": {
+          "type": "boolean"
+        },
+        "consumerRoot": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "consumerIncludes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "withFiles": {
+          "type": "boolean"
+        },
+        "selectedIssue": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "recentClosed": {
+          "type": "integer"
+        }
+      }
+    },
+    "stateTransitionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priorStateIdentity",
+        "acceptedBoundaryDescriptorIdentity",
+        "acceptedCollaborationResultIdentity",
+        "acceptanceReceiptIdentity",
+        "satisfiedNormalizedObligationIdentities",
+        "resultingStateIdentity"
+      ],
+      "properties": {
+        "priorStateIdentity": {
+          "type": "string"
+        },
+        "acceptedBoundaryDescriptorIdentity": {
+          "type": "string"
+        },
+        "acceptedCollaborationResultIdentity": {
+          "type": "string"
+        },
+        "acceptanceReceiptIdentity": {
+          "type": "string"
+        },
+        "satisfiedNormalizedObligationIdentities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resultingStateIdentity": {
+          "type": "string"
+        },
+        "successorResponsibility": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "mutationSentinel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "operation",
+        "evidenceType",
+        "prohibitedSurfaces",
+        "unmeasuredSurfaces",
+        "limitations"
+      ],
+      "properties": {
+        "contractVersion": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "evidenceType": {
+          "type": "string"
+        },
+        "prohibitedSurfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "unmeasuredSurfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "conflictEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "reason"
+      ],
+      "properties": {
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "limitationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
     }
   }
 }
