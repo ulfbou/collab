@@ -68,7 +68,15 @@ def make_model(*, requested=True, available=True, selected_issue_requested=True,
                 "labels": [{"name": "priority:foundation"}],
                 "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
                 "url": "https://example.invalid/open-issue",
-            }
+            },
+            {
+                "number": 62,
+                "state": "OPEN",
+                "title": "Issue 62",
+                "labels": [{"name": "type:contracts"}],
+                "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
+                "url": "https://example.invalid/open-issue-62",
+            },
         ],
         "openPullRequests": [
             {
@@ -82,7 +90,19 @@ def make_model(*, requested=True, available=True, selected_issue_requested=True,
                 "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
                 "author": {"login": "ulfbou"},
                 "url": "https://example.invalid/pr/83",
-            }
+            },
+            {
+                "number": 84,
+                "state": "OPEN",
+                "title": "Architecture follow-up",
+                "baseRefName": "main",
+                "headRefName": "feat/current-state-record-2",
+                "headRefOid": "fedcba9876543210fedcba9876543210fedcba98",
+                "labels": [{"name": "type:architecture"}],
+                "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
+                "author": {"login": "ulfbou"},
+                "url": "https://example.invalid/pr/84",
+            },
         ],
         "recentlyMergedPullRequests": [
             {
@@ -98,7 +118,21 @@ def make_model(*, requested=True, available=True, selected_issue_requested=True,
                 "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
                 "author": {"login": "ulfbou"},
                 "url": "https://example.invalid/pr/83",
-            }
+            },
+            {
+                "number": 84,
+                "state": "MERGED",
+                "title": "Architecture follow-up",
+                "baseRefName": "main",
+                "headRefName": "feat/current-state-record-2",
+                "headRefOid": "fedcba9876543210fedcba9876543210fedcba98",
+                "mergeCommit": {"oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+                "mergedAt": "2026-10-17T00:00:00Z",
+                "labels": [{"name": "type:architecture"}],
+                "milestone": {"number": 1, "title": "Collab: boundary-centric collaboration model"},
+                "author": {"login": "ulfbou"},
+                "url": "https://example.invalid/pr/84",
+            },
         ],
         "labels": [{"name": "priority:foundation", "color": "D93F0B"}],
         "milestones": [{"number": 1, "title": "Collab: boundary-centric collaboration model", "state": "OPEN"}],
@@ -107,9 +141,9 @@ def make_model(*, requested=True, available=True, selected_issue_requested=True,
         data = {
             "milestones": [{"state": "OPEN", "title": "Collab: boundary-centric collaboration model", "number": 1}],
             "labels": [{"color": "D93F0B", "name": "priority:foundation"}],
-            "recentlyMergedPullRequests": list(data["recentlyMergedPullRequests"]),
-            "openPullRequests": list(data["openPullRequests"]),
-            "openIssues": list(data["openIssues"]),
+            "recentlyMergedPullRequests": list(reversed(data["recentlyMergedPullRequests"])),
+            "openPullRequests": list(reversed(data["openPullRequests"])),
+            "openIssues": list(reversed(data["openIssues"])),
             "repository": repository,
         }
 
@@ -346,6 +380,8 @@ assert {entry["status"] for entry in not_requested["completeness"]["hosted"]["do
 assert not_requested["classifications"]["hostedState"]["value"] == "not_requested"
 
 not_applicable = module.current_state_record(make_model(selected_issue_requested=False), capture_id="capture:20261017T000006.000000Z-11117777")
+assert not_applicable["completeness"]["hosted"]["overall"] == "observed"
+assert not_applicable["classifications"]["hostedState"]["value"] == "available"
 assert not_applicable["completeness"]["hosted"]["domains"]["selectedIssue"]["status"] == "not_applicable"
 
 unavailable = module.current_state_record(make_model(requested=True, available=False, selected_issue_requested=True, selected_issue_present=False), capture_id="capture:20261017T000007.000000Z-22228888")

@@ -391,6 +391,11 @@ def _project_issue(value):
     }
 
 
+def _project_issue_collection(items):
+    projected = [_project_issue(item) for item in items or [] if isinstance(item, dict)]
+    return sorted(projected, key=lambda x: (x.get('number') or 0, x.get('title') or ''))
+
+
 def _project_pull_request(value):
     if not isinstance(value, dict):
         return None
@@ -408,13 +413,25 @@ def _project_pull_request(value):
     }
 
 
+def _project_pull_request_collection(items):
+    projected = [_project_pull_request(item) for item in items or [] if isinstance(item, dict)]
+    return sorted(
+        projected,
+        key=lambda x: (
+            x.get('number') or 0,
+            x.get('headRefOid') or '',
+            x.get('title') or '',
+        ),
+    )
+
+
 def _project_github_domains(github):
     data = github.get('data') if isinstance(github, dict) else {}
     return {
         'repository': _project_repository(data.get('repository')),
-        'openIssues': [_project_issue(item) for item in data.get('openIssues', []) if isinstance(item, dict)],
-        'openPullRequests': [_project_pull_request(item) for item in data.get('openPullRequests', []) if isinstance(item, dict)],
-        'recentlyMergedPullRequests': [_project_pull_request(item) for item in data.get('recentlyMergedPullRequests', []) if isinstance(item, dict)],
+        'openIssues': _project_issue_collection(data.get('openIssues', [])),
+        'openPullRequests': _project_pull_request_collection(data.get('openPullRequests', [])),
+        'recentlyMergedPullRequests': _project_pull_request_collection(data.get('recentlyMergedPullRequests', [])),
         'labels': sorted([item.get('name') for item in data.get('labels', []) if isinstance(item, dict) and item.get('name')]),
         'milestones': sorted(
             [
@@ -478,8 +495,6 @@ def hosted_domain_completeness(github):
     elif not available:
         overall = 'unavailable'
     elif any(entry['status'] == 'failed' for entry in domains.values()):
-        overall = 'partial'
-    elif any(entry['status'] == 'not_applicable' for entry in domains.values()):
         overall = 'partial'
     return {'overall': overall, 'domains': domains}
 
