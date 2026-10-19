@@ -1,0 +1,530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.collab.dev/repository-manifest/v1/schema.json",
+  "title": "Collab repository manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "repository",
+    "product",
+    "lifecycle",
+    "workspace",
+    "components",
+    "authorities",
+    "engineering",
+    "releaseUnits",
+    "versionDomains",
+    "boundaries",
+    "relationships",
+    "invariants",
+    "nonGoals",
+    "policy",
+    "extensions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/repository-manifest/v1"
+    },
+    "repository": {
+      "$ref": "#/$defs/repository"
+    },
+    "product": {
+      "$ref": "#/$defs/product"
+    },
+    "lifecycle": {
+      "enum": [
+        "experimental",
+        "active",
+        "maintenance",
+        "deprecated",
+        "historical"
+      ]
+    },
+    "workspace": {
+      "$ref": "#/$defs/workspace"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "authorities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/authority"
+      }
+    },
+    "engineering": {
+      "$ref": "#/$defs/engineering"
+    },
+    "releaseUnits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/releaseUnit"
+      }
+    },
+    "versionDomains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/versionDomain"
+      }
+    },
+    "boundaries": {
+      "$ref": "#/$defs/boundaries"
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/declaration"
+      }
+    },
+    "nonGoals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/declaration"
+      }
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+      "maxLength": 128
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\u0000)[^/]+(?:/[^/]+)*$"
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "pathSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9.-]*/[a-z][a-z0-9._-]*$"
+      },
+      "additionalProperties": true
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "purpose"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audiences": {
+          "$ref": "#/$defs/stringSet"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryPoints"
+      ],
+      "properties": {
+        "entryPoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/namedPath"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "namedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "description": {
+          "type": "string"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "paths"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "paths": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "policy",
+            "contract",
+            "schema",
+            "decision",
+            "documentation"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "scope": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "engineering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryPoints"
+      ],
+      "properties": {
+        "entryPoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/engineeringEntry"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "engineeringEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "build",
+            "test",
+            "package",
+            "validate",
+            "document",
+            "develop",
+            "release"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "description": {
+          "type": "string"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "releaseUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "components",
+        "versionDomain"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "components": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "versionDomain": {
+          "$ref": "#/$defs/id"
+        },
+        "artifacts": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "versionDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourcePath": {
+          "$ref": "#/$defs/path"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "public",
+        "internal",
+        "generated",
+        "historical",
+        "readOnly"
+      ],
+      "properties": {
+        "public": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "internal": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "generated": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "historical": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "readOnly": {
+          "$ref": "#/$defs/pathSet"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "repository"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "depends-on",
+            "consumes",
+            "publishes-to",
+            "supersedes",
+            "related"
+          ]
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "statement"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection",
+        "alignment"
+      ],
+      "properties": {
+        "collection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "include",
+            "exclude"
+          ],
+          "properties": {
+            "include": {
+              "$ref": "#/$defs/pathSet"
+            },
+            "exclude": {
+              "$ref": "#/$defs/pathSet"
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            }
+          }
+        },
+        "alignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authorityIds"
+          ],
+          "properties": {
+            "authorityIds": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "extensions": {
+              "$ref": "#/$defs/extensions"
+            }
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    }
+  }
+}

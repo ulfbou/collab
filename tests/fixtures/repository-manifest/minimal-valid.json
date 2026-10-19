@@ -1,0 +1,42 @@
+{
+  "schema": "collab/repository-manifest/v1",
+  "repository": {
+    "id": "example/minimal"
+  },
+  "product": {
+    "id": "minimal",
+    "name": "Minimal",
+    "purpose": "Conformance fixture"
+  },
+  "lifecycle": "active",
+  "workspace": {
+    "entryPoints": []
+  },
+  "components": [],
+  "authorities": [],
+  "engineering": {
+    "entryPoints": []
+  },
+  "releaseUnits": [],
+  "versionDomains": [],
+  "boundaries": {
+    "public": [],
+    "internal": [],
+    "generated": [],
+    "historical": [],
+    "readOnly": []
+  },
+  "relationships": [],
+  "invariants": [],
+  "nonGoals": [],
+  "policy": {
+    "collection": {
+      "include": [],
+      "exclude": []
+    },
+    "alignment": {
+      "authorityIds": []
+    }
+  },
+  "extensions": {}
+}
