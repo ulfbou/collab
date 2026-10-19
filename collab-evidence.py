@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -9,13 +10,29 @@ import re
 import shutil
 import subprocess
 
+from collab.artifacts import canonical_json_bytes
 from collab.github import GitHubClient, GitHubError
+import secrets
 import tempfile
 from pathlib import Path, PurePosixPath
 
 
 class Error(Exception):
     pass
+
+
+CURRENT_STATE_SCHEMA_VERSION = '1.0'
+STATE_IDENTITY_NORMALIZATION_VERSION = '1'
+STATE_IDENTITY_PREFIX = f'sha256:v{STATE_IDENTITY_NORMALIZATION_VERSION}:'
+HOSTED_DOMAIN_NAMES = (
+    'repository',
+    'openIssues',
+    'openPullRequests',
+    'recentlyMergedPullRequests',
+    'labels',
+    'milestones',
+    'selectedIssue',
+)
 
 
 def run(args, cwd=None):
@@ -186,6 +203,7 @@ def github_model(repo, root, recent_closed, selected_issue=None):
             'repository': repo,
             'requested': True,
             'available': False,
+            'selectedIssueRequested': selected_issue is not None,
             'queryStatus': {k: 'unavailable' for k in keys},
             'errors': [{'section': 'authentication', 'error': str(e)}],
             'data': {}
@@ -248,6 +266,7 @@ def github_model(repo, root, recent_closed, selected_issue=None):
         'repository': repo,
         'requested': True,
         'available': True,
+        'selectedIssueRequested': selected_issue is not None,
         'queryStatus': st,
         'errors': errors,
         'data': data,
@@ -298,6 +317,424 @@ def selected(root, tracked, includes, excludes, max_bytes, with_files=True):
     return sorted(out, key=lambda x: x['path'])
 
 
+def classification_entry(value, evidence, *, rule_id, rule_version='1'):
+    return {
+        'value': value,
+        'evidence': list(evidence),
+        'rule': {
+            'id': rule_id,
+            'version': rule_version,
+        },
+    }
+
+
+def completeness_entry(status, evidence, *, requested, reason=None, rule_id='hosted-domain-completeness', rule_version='1'):
+    entry = {
+        'status': status,
+        'requested': requested,
+        'evidence': list(evidence),
+        'rule': {
+            'id': rule_id,
+            'version': rule_version,
+        },
+    }
+    if reason is not None:
+        entry['reason'] = reason
+    return entry
+
+
+def _field_path(prefix, *parts):
+    return '.'.join((prefix, *parts))
+
+
+def _project_labels(labels):
+    out = []
+    for item in labels or []:
+        if isinstance(item, dict):
+            out.append({'name': item.get('name'), 'color': item.get('color')})
+    return sorted(out, key=lambda x: x.get('name') or '')
+
+
+def _project_milestone(value):
+    if not isinstance(value, dict):
+        return None
+    return {
+        'number': value.get('number'),
+        'title': value.get('title'),
+        'state': value.get('state'),
+    }
+
+
+def _project_repository(value):
+    if not isinstance(value, dict):
+        return None
+    default_ref = value.get('defaultBranchRef')
+    default_branch = default_ref.get('name') if isinstance(default_ref, dict) else None
+    return {
+        'nameWithOwner': value.get('nameWithOwner'),
+        'defaultBranch': default_branch,
+    }
+
+
+def _project_issue(value):
+    if not isinstance(value, dict):
+        return None
+    return {
+        'number': value.get('number'),
+        'state': value.get('state'),
+        'title': value.get('title'),
+        'labels': _project_labels(value.get('labels')),
+        'milestone': _project_milestone(value.get('milestone')),
+        'assignees': sorted(
+            [item.get('login') for item in value.get('assignees', []) if isinstance(item, dict) and item.get('login')],
+        ),
+    }
+
+
+def _project_issue_collection(items):
+    projected = [_project_issue(item) for item in items or [] if isinstance(item, dict)]
+    return sorted(projected, key=lambda x: (x.get('number') or 0, x.get('title') or ''))
+
+
+def _project_pull_request(value):
+    if not isinstance(value, dict):
+        return None
+    return {
+        'number': value.get('number'),
+        'state': value.get('state'),
+        'title': value.get('title'),
+        'baseRefName': value.get('baseRefName'),
+        'headRefName': value.get('headRefName'),
+        'headRefOid': value.get('headRefOid'),
+        'mergedAt': value.get('mergedAt'),
+        'labels': _project_labels(value.get('labels')),
+        'milestone': _project_milestone(value.get('milestone')),
+        'author': value.get('author', {}).get('login') if isinstance(value.get('author'), dict) else None,
+    }
+
+
+def _project_pull_request_collection(items):
+    projected = [_project_pull_request(item) for item in items or [] if isinstance(item, dict)]
+    return sorted(
+        projected,
+        key=lambda x: (
+            x.get('number') or 0,
+            x.get('headRefOid') or '',
+            x.get('title') or '',
+        ),
+    )
+
+
+def _project_github_domains(github):
+    data = github.get('data') if isinstance(github, dict) else {}
+    return {
+        'repository': _project_repository(data.get('repository')),
+        'openIssues': _project_issue_collection(data.get('openIssues', [])),
+        'openPullRequests': _project_pull_request_collection(data.get('openPullRequests', [])),
+        'recentlyMergedPullRequests': _project_pull_request_collection(data.get('recentlyMergedPullRequests', [])),
+        'labels': sorted([item.get('name') for item in data.get('labels', []) if isinstance(item, dict) and item.get('name')]),
+        'milestones': sorted(
+            [
+                {
+                    'number': item.get('number'),
+                    'title': item.get('title'),
+                    'state': item.get('state'),
+                }
+                for item in data.get('milestones', [])
+                if isinstance(item, dict)
+            ],
+            key=lambda x: (x.get('title') or '', x.get('number') or 0),
+        ),
+    }
+
+
+def hosted_domain_completeness(github):
+    requested = bool(github.get('requested')) if isinstance(github, dict) else False
+    available = bool(github.get('available')) if isinstance(github, dict) else False
+    query_status = github.get('queryStatus') if isinstance(github, dict) else {}
+    selected_requested = bool(github.get('selectedIssueRequested')) if isinstance(github, dict) else False
+
+    domains = {}
+    for domain in HOSTED_DOMAIN_NAMES:
+        if not requested:
+            domains[domain] = completeness_entry(
+                'not_requested',
+                [f'observations.hostedState.requested'],
+                requested=False,
+                reason='github-not-requested',
+            )
+            continue
+        if not available:
+            domains[domain] = completeness_entry(
+                'unavailable',
+                [f'observations.hostedState.available', f'observations.hostedState.queryStatus.{domain}'],
+                requested=True,
+                reason='github-unavailable',
+            )
+            continue
+
+        if domain == 'selectedIssue' and not selected_requested:
+            domains[domain] = completeness_entry(
+                'not_applicable',
+                [f'observations.hostedState.selectedIssueRequested'],
+                requested=False,
+                reason='selected-issue-not-requested',
+            )
+            continue
+
+        status = 'observed' if query_status.get(domain) == 'ok' else 'failed'
+        reason = None if status == 'observed' else 'requested-domain-failed'
+        evidence = [f'observations.hostedState.queryStatus.{domain}']
+        if status == 'observed':
+            evidence.append(f'observations.hostedState.data.{domain}')
+        domains[domain] = completeness_entry(status, evidence, requested=True, reason=reason)
+
+    overall = 'observed'
+    if not requested:
+        overall = 'not_requested'
+    elif not available:
+        overall = 'unavailable'
+    elif any(entry['status'] == 'failed' for entry in domains.values()):
+        overall = 'partial'
+    return {'overall': overall, 'domains': domains}
+
+
+def mutation_sentinel():
+    return {
+        'contractVersion': '1',
+        'operation': 'current-state-capture-and-projection',
+        'evidenceType': 'test-evidence',
+        'prohibitedSurfaces': [
+            'tracked-content',
+            'index',
+            'working-tree',
+            'branch',
+            'HEAD',
+            'hosted-state',
+            'accepted-history',
+        ],
+        'unmeasuredSurfaces': [
+            'live-telemetry',
+        ],
+        'limitations': [
+            'non-mutation is established by implementation contract and focused tests, not by embedded runtime telemetry',
+        ],
+    }
+
+
+def hosted_state_classification(github, completeness):
+    if not github.get('requested'):
+        return classification_entry(
+            'not_requested',
+            ['observations.hostedState.requested'],
+            rule_id='hosted-state-classification',
+        )
+    if not github.get('available'):
+        return classification_entry(
+            'unavailable',
+            ['observations.hostedState.available', 'observations.hostedState.queryStatus'],
+            rule_id='hosted-state-classification',
+        )
+    if completeness['overall'] == 'partial':
+        return classification_entry(
+            'partial',
+            ['completeness.hosted'],
+            rule_id='hosted-state-classification',
+        )
+    return classification_entry(
+        'available',
+        ['observations.hostedState.available', 'completeness.hosted'],
+        rule_id='hosted-state-classification',
+    )
+
+
+def selected_issue_classification(github, completeness):
+    domain = completeness['domains']['selectedIssue']
+    return classification_entry(
+        domain['status'],
+        ['observations.hostedState.selectedIssue', 'completeness.hosted.domains.selectedIssue'],
+        rule_id='selected-issue-classification',
+    )
+
+
+def selected_files_classification(selected_files):
+    value = 'present' if selected_files else 'absent'
+    return classification_entry(
+        value,
+        ['observations.selectedFiles'],
+        rule_id='selected-files-classification',
+    )
+
+
+def working_tree_classification(git):
+    return classification_entry(
+        git['workingTree'],
+        ['observations.git.statusPorcelain', 'observations.git.workingTree'],
+        rule_id='working-tree-classification',
+    )
+
+
+def hosted_semantic_projection(record):
+    hosted = record['observations']['hostedState']
+    completeness = record['completeness']['hosted']
+    return {
+        'requested': hosted['requested'],
+        'available': hosted['available'],
+        'domains': _project_github_domains(hosted),
+        'completeness': completeness,
+    }
+
+
+def current_state_capture_id() -> str:
+    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+    return f'capture:{stamp}-{secrets.token_hex(4)}'
+
+
+def current_state_semantic_projection(record):
+    return {
+        'stateIdentityNormalizationVersion': STATE_IDENTITY_NORMALIZATION_VERSION,
+        'observations': {
+            'repository': record['observations']['repository'],
+            'git': record['observations']['git'],
+            'hostedState': hosted_semantic_projection(record),
+            'selectedFiles': record['observations']['selectedFiles'],
+            'configuration': record['observations']['configuration'],
+        },
+        'relationships': record['relationships'],
+        'controllingState': record['controllingState'],
+        'workingState': record['workingState'],
+        'candidate': record['candidate'],
+        'classifications': record['classifications'],
+        'acceptedHistory': record['acceptedHistory'],
+        'completeness': record['completeness'],
+        'consistency': record['consistency'],
+    }
+
+
+def current_state_identity(record):
+    digest = hashlib.sha256(canonical_json_bytes(current_state_semantic_projection(record))).hexdigest()
+    return STATE_IDENTITY_PREFIX + digest
+
+
+def current_state_record(m, *, capture_id=None, output_path=None, rendering=None):
+    git = copy.deepcopy(m['git'])
+    github = copy.deepcopy(m['github'])
+    selected_files = copy.deepcopy(m['selectedFiles'])
+    relationships = copy.deepcopy(m['relationships'])
+    configuration = copy.deepcopy(m.get('configuration', {}))
+    repository = {
+        'nameWithOwner': git['repository'],
+        'origin': git['origin'],
+        'defaultBranch': git['defaultBranch'],
+    }
+    observations = {
+        'capturedAt': m['generatedAt'],
+        'repository': copy.deepcopy(repository),
+        'git': {
+            'currentBranch': git['currentBranch'],
+            'head': git['head'],
+            'workingTree': git['workingTree'],
+            'statusPorcelain': git['statusPorcelain'],
+            'trackedTree': git['trackedTree'],
+            'recentCommits': git['recentCommits'],
+        },
+        'hostedState': github,
+        'selectedFiles': copy.deepcopy(selected_files),
+        'configuration': copy.deepcopy(configuration),
+    }
+    if output_path is not None:
+        observations['outputPath'] = output_path
+    if rendering is not None:
+        observations['rendering'] = copy.deepcopy(rendering)
+    completeness = {
+        'hosted': hosted_domain_completeness(github),
+        'selectedFiles': {
+            'status': 'observed' if selected_files else 'observed',
+            'requested': True,
+            'evidence': ['observations.selectedFiles'],
+            'rule': {
+                'id': 'selected-files-completeness',
+                'version': '1',
+            },
+        },
+        'configuration': {
+            'status': 'observed',
+            'requested': True,
+            'evidence': ['observations.configuration'],
+            'rule': {
+                'id': 'configuration-completeness',
+                'version': '1',
+            },
+        },
+    }
+    classifications = {
+        'workingTree': working_tree_classification(git),
+        'hostedState': hosted_state_classification(github, completeness['hosted']),
+        'selectedIssue': selected_issue_classification(github, completeness['hosted']),
+        'selectedFiles': selected_files_classification(selected_files),
+    }
+    record = {
+        'schemaVersion': CURRENT_STATE_SCHEMA_VERSION,
+        'captureId': capture_id or current_state_capture_id(),
+        'stateIdentityNormalizationVersion': STATE_IDENTITY_NORMALIZATION_VERSION,
+        'observations': observations,
+        'relationships': relationships,
+        'controllingState': {
+            'repository': copy.deepcopy(repository),
+            'git': {
+                'currentBranch': git['currentBranch'],
+                'defaultBranch': git['defaultBranch'],
+                'head': git['head'],
+                'workingTree': git['workingTree'],
+            },
+            'hostedState': {
+                'available': github.get('available'),
+                'requested': github.get('requested'),
+                'selectedIssue': copy.deepcopy(github.get('selectedIssue')),
+            },
+        },
+        'workingState': {
+            'selectedFiles': copy.deepcopy(selected_files),
+            'statusPorcelain': git['statusPorcelain'],
+            'trackedTree': git['trackedTree'],
+        },
+        'candidate': {
+            'selectedIssue': copy.deepcopy(github.get('selectedIssue')),
+            'selectedFiles': copy.deepcopy(selected_files),
+            'configuration': copy.deepcopy(configuration),
+        },
+        'classifications': classifications,
+        'acceptedHistory': [],
+        'verification': {
+            'identityNormalization': f'sha256:v{STATE_IDENTITY_NORMALIZATION_VERSION}',
+            'compatibilityProjection': 'repository-state.json',
+            'mutationSentinel': mutation_sentinel(),
+        },
+        'completeness': completeness,
+        'consistency': {
+            'status': 'consistent',
+            'conflicts': [],
+        },
+        'limitations': (
+            [
+                {
+                    'scope': 'hostedState',
+                    'section': item.get('section'),
+                    'error': item.get('error'),
+                }
+                for item in github.get('errors', [])
+            ] + (
+                [] if github.get('available') else [{
+                    'scope': 'hostedState',
+                    'reason': 'github-unavailable',
+                }]
+            )
+        ),
+    }
+    record['stateIdentity'] = current_state_identity(record)
+    return record
+
+
 def consumer(root: Path, includes, max_bytes, with_files=True):
     g = git_model(root)
     return {
@@ -344,6 +781,7 @@ def collect(
             'repository': repo,
             'requested': False,
             'available': False,
+            'selectedIssueRequested': selected_issue is not None,
             'queryStatus': {},
             'errors': [],
             'data': {},
@@ -374,6 +812,19 @@ def collect(
             consumer(Path(consumer_root).resolve(), consumer_includes or [], max_bytes, with_files)
         )
 
+    configuration = {
+        'includes': list(includes or []),
+        'excludes': list(excludes or []),
+        'maxBytes': max_bytes,
+        'recentCommits': recent,
+        'github': github,
+        'consumerRoot': str(Path(consumer_root).resolve()) if consumer_root else None,
+        'consumerIncludes': list(consumer_includes or []),
+        'withFiles': with_files,
+        'selectedIssue': selected_issue,
+        'recentClosed': recent_closed,
+    }
+
     selected_files = selected(root, g['trackedTree'], includes or [], excludes or [],
                               max_bytes, with_files)
 
@@ -384,24 +835,28 @@ def collect(
         'github': gh,
         'selectedFiles': selected_files,
         'relationships': rel,
+        'configuration': configuration,
         'selectedIssue': gh.get('selectedIssue'),
     }
 
 
 def repository_state(m):
-    d = m['github']['data']
+    record = m if isinstance(m, dict) and 'stateIdentity' in m and 'observations' in m else current_state_record(m)
+    d = record['observations']['hostedState']['data']
+    git = record['controllingState']['git']
+    repository = record['controllingState']['repository']
     return {
         'schemaVersion': '1.0',
-        'generatedAt': m['generatedAt'],
+        'generatedAt': record['observations']['capturedAt'],
         'repository': {
-            'nameWithOwner': m['git']['repository'],
-            'defaultBranch': m['git']['defaultBranch'],
-            'currentBranch': m['git']['currentBranch'],
-            'head': m['git']['head'],
-            'workingTree': m['git']['workingTree'],
+            'nameWithOwner': repository['nameWithOwner'],
+            'defaultBranch': repository['defaultBranch'],
+            'currentBranch': git['currentBranch'],
+            'head': git['head'],
+            'workingTree': git['workingTree'],
         },
         'planning': {
-            'githubAvailable': m['github']['available'],
+            'githubAvailable': record['observations']['hostedState']['available'],
             'openIssues': d.get('openIssues', []),
             'openMilestones': d.get('milestones', []),
             'openPullRequests': d.get('openPullRequests', []),
@@ -412,7 +867,7 @@ def repository_state(m):
             'githubData': 'github-evidence.json',
             'collaborationContract': 'collaboration-contract.dx.txt',
         },
-        'relationships': m['relationships'],
+        'relationships': record['relationships'],
         'requestedOutcome': {
             'mode': 'SELECT_OR_PREPARE_NEXT_WORK',
             'maximumConcurrentSelections': 1,
