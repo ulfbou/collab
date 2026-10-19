@@ -76,6 +76,33 @@ def _path_exists(root: Path, path: str) -> bool:
         return False
     return (root / Path(*PurePosixPath(path).parts)).exists()
 
+def _path_declarations(value: Mapping[str, Any]) -> Iterable[tuple[str, str]]:
+    """Yield every repository-path declaration with its exact JSON location."""
+    for index, item in enumerate(value["workspace"]["entryPoints"]):
+        yield f"$.workspace.entryPoints[{index}].path", item["path"]
+    for index, item in enumerate(value["components"]):
+        for path_index, declared in enumerate(item["paths"]):
+            yield f"$.components[{index}].paths[{path_index}]", declared
+    for index, item in enumerate(value["authorities"]):
+        yield f"$.authorities[{index}].path", item["path"]
+        for path_index, declared in enumerate(item.get("scope", [])):
+            yield f"$.authorities[{index}].scope[{path_index}]", declared
+    for index, item in enumerate(value["engineering"]["entryPoints"]):
+        yield f"$.engineering.entryPoints[{index}].path", item["path"]
+    for index, item in enumerate(value["releaseUnits"]):
+        for path_index, declared in enumerate(item.get("artifacts", [])):
+            yield f"$.releaseUnits[{index}].artifacts[{path_index}]", declared
+    for index, item in enumerate(value["versionDomains"]):
+        if "sourcePath" in item:
+            yield f"$.versionDomains[{index}].sourcePath", item["sourcePath"]
+    for name in _BOUNDARY_NAMES:
+        for index, declared in enumerate(value["boundaries"][name]):
+            yield f"$.boundaries.{name}[{index}]", declared
+    collection = value["policy"]["collection"]
+    for name in ("include", "exclude"):
+        for index, declared in enumerate(collection[name]):
+            yield f"$.policy.collection.{name}[{index}]", declared
+
 def _duplicate_diagnostics(items: list[Mapping[str, Any]], collection: str) -> list[Diagnostic]:
     seen: dict[str, int] = {}
     result: list[Diagnostic] = []
@@ -117,14 +144,9 @@ def _semantic_diagnostics(value: Mapping[str, Any], root: Path) -> list[Diagnost
         if identifier not in authority_ids:
             result.append(_diagnostic("unresolved_authority", f"$.policy.alignment.authorityIds[{index}]", f"Unknown authority {identifier!r}"))
 
-    resolvable: list[tuple[str, str]] = []
-    for index, item in enumerate(value["workspace"]["entryPoints"]): resolvable.append((f"$.workspace.entryPoints[{index}].path", item["path"]))
-    for index, item in enumerate(value["engineering"]["entryPoints"]): resolvable.append((f"$.engineering.entryPoints[{index}].path", item["path"]))
-    for index, item in enumerate(value["authorities"]): resolvable.append((f"$.authorities[{index}].path", item["path"]))
-    for index, item in enumerate(value["versionDomains"]):
-        if "sourcePath" in item: resolvable.append((f"$.versionDomains[{index}].sourcePath", item["sourcePath"]))
-    for path, declared in resolvable:
-        if not _path_exists(root, declared): result.append(_diagnostic("path_not_found", path, f"Declared repository path {declared!r} does not exist"))
+    for path, declared in _path_declarations(value):
+        if not _path_exists(root, declared):
+            result.append(_diagnostic("path_not_found", path, f"Declared repository path {declared!r} does not exist"))
 
     boundaries = value["boundaries"]
     owners: dict[str, str] = {}
@@ -159,4 +181,6 @@ def load_repository_manifest(repository_root: str | Path, *, manifest_path: str 
     except json.JSONDecodeError as exc:
         return ManifestResult("invalid", manifest_path, None, (_diagnostic("invalid_json", "$", f"Invalid JSON at line {exc.lineno}, column {exc.colno}"),))
     diagnostics = validate_manifest(value, root, schema_path=schema_path)
-    return ManifestResult("valid" if not diagnostics else "invalid", manifest_path, value, diagnostics)
+    unavailable_codes = {"schema_validator_unavailable", "schema_unavailable"}
+    status = "unavailable" if any(item.code in unavailable_codes for item in diagnostics) else ("valid" if not diagnostics else "invalid")
+    return ManifestResult(status, manifest_path, value, diagnostics)

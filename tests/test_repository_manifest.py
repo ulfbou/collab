@@ -2,8 +2,12 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import builtins
+import copy
 
 import jsonschema
+import collab.repository_manifest as repository_manifest
 
 from collab.repository_manifest import load_repository_manifest, validate_manifest
 
@@ -82,12 +86,70 @@ class RepositoryManifestTests(unittest.TestCase):
         missing = validate_manifest(self.fixture("invalid-authority-path.json"), self.root)
         self.assertEqual(["path_not_found"], [item.code for item in missing])
         contradictory = validate_manifest(self.fixture("invalid-boundary.json"), self.root)
-        self.assertEqual(["contradictory_boundary"], [item.code for item in contradictory])
+        self.assertIn("contradictory_boundary", [item.code for item in contradictory])
 
     def test_complete_and_gitdrift_declarations_validate_when_paths_exist(self):
         self.materialize_complete_paths()
         for name in ("complete-valid.json", "gitdrift-valid.json"):
             self.assertEqual((), validate_manifest(self.fixture(name), self.root), name)
+
+    def test_every_path_bearing_field_resolves_and_reports_exact_location(self):
+        self.materialize_complete_paths()
+        value = self.fixture("complete-valid.json")
+        declarations = list(repository_manifest._path_declarations(value))
+        expected = {
+            "$.workspace.entryPoints[0].path",
+            "$.components[0].paths[0]",
+            "$.authorities[0].path",
+            "$.authorities[0].scope[0]",
+            "$.engineering.entryPoints[0].path",
+            "$.releaseUnits[0].artifacts[0]",
+            "$.versionDomains[0].sourcePath",
+            "$.boundaries.public[0]",
+            "$.boundaries.internal[0]",
+            "$.boundaries.generated[0]",
+            "$.boundaries.historical[0]",
+            "$.boundaries.readOnly[0]",
+            "$.policy.collection.include[0]",
+            "$.policy.collection.exclude[0]",
+        }
+        self.assertTrue(expected.issubset({path for path, _ in declarations}))
+        self.assertEqual((), validate_manifest(value, self.root))
+        for location, _ in declarations:
+            candidate = copy.deepcopy(value)
+            parts = location.removeprefix("$.").replace("]", "").replace("[", ".").split(".")
+            target = candidate
+            for part in parts[:-1]:
+                target = target[int(part)] if part.isdigit() else target[part]
+            key = int(parts[-1]) if parts[-1].isdigit() else parts[-1]
+            target[key] = f"missing/{len(location)}-{location.count('.')}"
+            diagnostics = validate_manifest(candidate, self.root)
+            matching = [item for item in diagnostics if item.code == "path_not_found" and item.path == location]
+            self.assertEqual(1, len(matching), location)
+
+    def test_path_diagnostic_order_is_deterministic(self):
+        value = self.fixture("complete-valid.json")
+        first = [item.as_dict() for item in validate_manifest(value, self.root)]
+        second = [item.as_dict() for item in validate_manifest(value, self.root)]
+        self.assertEqual(first, second)
+        self.assertEqual(first, sorted(first, key=lambda item: (item["path"], item["code"], item["message"])))
+
+    def test_jsonschema_is_a_declared_runtime_dependency(self):
+        requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        self.assertTrue(any(line.startswith("jsonschema") for line in requirements))
+
+    def test_validator_unavailability_is_not_classified_as_invalid_declaration(self):
+        self.declare(self.fixture("minimal-valid.json"))
+        real_import = builtins.__import__
+
+        def blocked_import(name, *args, **kwargs):
+            if name == "jsonschema":
+                raise ImportError("simulated unavailable dependency")
+            return real_import(name, *args, **kwargs)
+        with patch("builtins.__import__", side_effect=blocked_import):
+            result = load_repository_manifest(self.root)
+        self.assertEqual("unavailable", result.status)
+        self.assertEqual(["schema_validator_unavailable"], [item.code for item in result.diagnostics])
 
     def test_loader_is_read_only(self):
         self.declare(self.fixture("minimal-valid.json"))

@@ -50,9 +50,11 @@ core semantics.
 
 All paths are repository-relative, non-empty, `/`-separated paths. Absolute,
 drive-qualified, backslash-separated, NUL-containing, empty-segment, `.` and
-`..` paths are invalid. Canonical workspace and engineering entry points,
-authority paths, and version-domain source paths must resolve beneath the
-explicit repository root supplied to validation.
+`..` paths are invalid. Every core repository-path declaration must resolve
+beneath the explicit repository root supplied to validation, including workspace
+and engineering entry points, component paths, authority paths and scopes,
+release artifacts, version-domain source paths, boundary paths, and collection
+include/exclude paths.
 
 Identifiers are stable within their collection. Component dependencies and
 release-unit component references resolve to components. Release-unit version
