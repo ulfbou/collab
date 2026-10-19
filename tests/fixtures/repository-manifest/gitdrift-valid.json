@@ -1,0 +1,141 @@
+{
+  "schema": "collab/repository-manifest/v1",
+  "repository": {
+    "id": "example/gitdrift"
+  },
+  "product": {
+    "id": "gitdrift",
+    "name": "Gitdrift",
+    "purpose": "Read-only repository-state alignment and provenance analysis",
+    "audiences": [
+      "repository maintainers"
+    ]
+  },
+  "lifecycle": "active",
+  "workspace": {
+    "entryPoints": [
+      {
+        "id": "source",
+        "path": "src/gitdrift"
+      },
+      {
+        "id": "tests",
+        "path": "tests"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "engine",
+      "name": "Alignment engine",
+      "purpose": "Compare repository states",
+      "paths": [
+        "src/gitdrift"
+      ],
+      "dependencies": []
+    }
+  ],
+  "authorities": [
+    {
+      "id": "architecture",
+      "kind": "contract",
+      "path": "docs/architecture.md",
+      "scope": [
+        "src/gitdrift"
+      ],
+      "readOnly": false
+    }
+  ],
+  "engineering": {
+    "entryPoints": [
+      {
+        "id": "tests",
+        "kind": "test",
+        "path": "tests"
+      },
+      {
+        "id": "package",
+        "kind": "package",
+        "path": "pyproject.toml"
+      }
+    ]
+  },
+  "releaseUnits": [
+    {
+      "id": "python-package",
+      "components": [
+        "engine"
+      ],
+      "versionDomain": "product",
+      "artifacts": [
+        "pyproject.toml"
+      ]
+    }
+  ],
+  "versionDomains": [
+    {
+      "id": "product",
+      "description": "Gitdrift product version",
+      "sourcePath": "pyproject.toml"
+    }
+  ],
+  "boundaries": {
+    "public": [
+      "src/gitdrift"
+    ],
+    "internal": [
+      "tests"
+    ],
+    "generated": [
+      "dist"
+    ],
+    "historical": [
+      "docs/history"
+    ],
+    "readOnly": [
+      "tests/fixtures"
+    ]
+  },
+  "relationships": [
+    {
+      "id": "dx-evidence",
+      "kind": "consumes",
+      "repository": "ulfbou/dx-artifacts",
+      "description": "Consumes optional evidence bundles"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "read-only",
+      "statement": "Analysis never mutates the inspected repository."
+    }
+  ],
+  "nonGoals": [
+    {
+      "id": "no-auto-fix",
+      "statement": "No automatic repository repair."
+    }
+  ],
+  "policy": {
+    "collection": {
+      "include": [
+        "src",
+        "tests",
+        "docs"
+      ],
+      "exclude": [
+        "dist"
+      ]
+    },
+    "alignment": {
+      "authorityIds": [
+        "architecture"
+      ]
+    }
+  },
+  "extensions": {
+    "gitdrift.dev/classification-policy": {
+      "mode": "explainable-dimensions"
+    }
+  }
+}
