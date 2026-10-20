@@ -1,0 +1,404 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.collab.dev/controlled-roadmap/v1/schema.json",
+  "title": "Collab controlled roadmap",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "roadmap",
+    "planningStates",
+    "repositories",
+    "capabilities",
+    "programs",
+    "horizons",
+    "items",
+    "specifications",
+    "supersessions",
+    "gates",
+    "statusEvidence",
+    "nextImplementationItem"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/controlled-roadmap/v1"
+    },
+    "roadmap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "authority",
+        "repository"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "const": "docs/roadmap/evidence-bound-collaboration.md"
+        },
+        "repository": {
+          "const": "ulfbou/collab"
+        }
+      }
+    },
+    "planningStates": {
+      "type": "array",
+      "const": [
+        "PROPOSED",
+        "ACCEPTED",
+        "READY",
+        "ACTIVE",
+        "REVIEW",
+        "BLOCKED",
+        "DEFERRED",
+        "COMPLETED",
+        "SUPERSEDED",
+        "REJECTED"
+      ]
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/owner"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/owner"
+      }
+    },
+    "programs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/program"
+      }
+    },
+    "horizons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "specifications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/specification"
+      }
+    },
+    "supersessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "evidence"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "requires"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "read-only-before-mutation",
+              "external-harness",
+              "ordered-responsibility",
+              "independent-adoption"
+            ]
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "statusEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observedAt",
+        "source",
+        "controllingCommit"
+      ],
+      "properties": {
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "controllingCommit": {
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "nextImplementationItem": {
+      "const": "issue-63"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "criticalPath"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "criticalPath": {
+          "type": "boolean"
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "owner",
+        "program",
+        "horizon",
+        "state",
+        "dependencies",
+        "hostedIssue",
+        "implementation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^issue-[0-9]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "program": {
+          "$ref": "#/$defs/id"
+        },
+        "horizon": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "enum": [
+            "PROPOSED",
+            "ACCEPTED",
+            "READY",
+            "ACTIVE",
+            "REVIEW",
+            "BLOCKED",
+            "DEFERRED",
+            "COMPLETED",
+            "SUPERSEDED",
+            "REJECTED"
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^issue-[0-9]+$"
+          },
+          "uniqueItems": true
+        },
+        "hostedIssue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "number"
+          ],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "number": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "integratedBy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "pullRequest"
+          ],
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "pullRequest": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "implementation": {
+          "enum": [
+            "implemented",
+            "not-implemented",
+            "external"
+          ]
+        }
+      }
+    },
+    "specification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "owner",
+        "state",
+        "implementation",
+        "mapsTo",
+        "acceptanceEvidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "enum": [
+            "PROPOSED",
+            "ACCEPTED",
+            "READY",
+            "ACTIVE",
+            "REVIEW",
+            "BLOCKED",
+            "DEFERRED",
+            "COMPLETED",
+            "SUPERSEDED",
+            "REJECTED"
+          ]
+        },
+        "implementation": {
+          "enum": [
+            "not-implemented",
+            "partially-implemented",
+            "implemented"
+          ]
+        },
+        "mapsTo": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "acceptanceEvidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
