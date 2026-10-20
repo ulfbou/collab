@@ -1,0 +1,769 @@
+{
+  "schema": "collab/controlled-roadmap/v1",
+  "roadmap": {
+    "id": "evidence-bound-collaboration",
+    "title": "Controlled evidence-bound collaboration roadmap",
+    "authority": "docs/roadmap/evidence-bound-collaboration.md",
+    "repository": "ulfbou/collab"
+  },
+  "planningStates": [
+    "PROPOSED",
+    "ACCEPTED",
+    "READY",
+    "ACTIVE",
+    "REVIEW",
+    "BLOCKED",
+    "DEFERRED",
+    "COMPLETED",
+    "SUPERSEDED",
+    "REJECTED"
+  ],
+  "repositories": [
+    {
+      "id": "ulfbou/collab",
+      "owner": "Collab roadmap and collaboration semantics"
+    },
+    {
+      "id": "ulfbou/gitdrift",
+      "owner": "Gitdrift external repository harness"
+    },
+    {
+      "id": "ulfbou/dx-artifacts",
+      "owner": "DX format semantics and conformance"
+    },
+    {
+      "id": "ulfbou/dxs",
+      "owner": "Transactional workspace mutation"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "collaboration-semantics",
+      "owner": "ulfbou/collab"
+    },
+    {
+      "id": "repository-alignment-analysis",
+      "owner": "ulfbou/gitdrift"
+    },
+    {
+      "id": "dx-format-semantics",
+      "owner": "ulfbou/dx-artifacts"
+    },
+    {
+      "id": "workspace-mutation",
+      "owner": "DXS/Dx.Cli"
+    },
+    {
+      "id": "repository-validation",
+      "owner": "repository-owned validators"
+    },
+    {
+      "id": "acceptance",
+      "owner": "human acceptance"
+    }
+  ],
+  "programs": [
+    {
+      "id": "collab-core",
+      "owner": "ulfbou/collab",
+      "criticalPath": true
+    },
+    {
+      "id": "github-caching",
+      "owner": "ulfbou/collab",
+      "criticalPath": false
+    },
+    {
+      "id": "related-evidence",
+      "owner": "ulfbou/collab",
+      "criticalPath": false
+    }
+  ],
+  "horizons": [
+    {
+      "id": "foundation",
+      "title": "Completed architecture foundations"
+    },
+    {
+      "id": "semantic-foundation",
+      "title": "Semantic foundation"
+    },
+    {
+      "id": "preparation-continuation",
+      "title": "Preparation and continuation"
+    },
+    {
+      "id": "results-acceptance-publication",
+      "title": "Results, acceptance, and publication"
+    },
+    {
+      "id": "read-only-reconvergence",
+      "title": "Read-only reconvergence"
+    },
+    {
+      "id": "dx-compatibility",
+      "title": "DX and compatibility"
+    },
+    {
+      "id": "mutation-boundaries",
+      "title": "Mutation boundaries"
+    },
+    {
+      "id": "orchestration-demotion",
+      "title": "Orchestration demotion"
+    },
+    {
+      "id": "related-evidence",
+      "title": "Related unresolved evidence"
+    },
+    {
+      "id": "separate-infrastructure",
+      "title": "Separate infrastructure program"
+    }
+  ],
+  "items": [
+    {
+      "id": "issue-60",
+      "title": "Evidence-grounded boundary-centric collaboration",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "foundation",
+      "state": "COMPLETED",
+      "dependencies": [],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 60
+      },
+      "implementation": "implemented",
+      "integratedBy": {
+        "repository": "ulfbou/collab",
+        "pullRequest": 83
+      }
+    },
+    {
+      "id": "issue-61",
+      "title": "Current State Record identity",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "foundation",
+      "state": "COMPLETED",
+      "dependencies": [
+        "issue-60"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 61
+      },
+      "implementation": "implemented",
+      "integratedBy": {
+        "repository": "ulfbou/collab",
+        "pullRequest": 84
+      }
+    },
+    {
+      "id": "issue-62",
+      "title": "Local and hosted observation contracts",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "foundation",
+      "state": "COMPLETED",
+      "dependencies": [
+        "issue-61"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 62
+      },
+      "implementation": "implemented",
+      "integratedBy": {
+        "repository": "ulfbou/collab",
+        "pullRequest": 86
+      }
+    },
+    {
+      "id": "issue-63",
+      "title": "Development Intent and AuthoritySet resolution",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "semantic-foundation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-61",
+        "issue-62",
+        "issue-85",
+        "issue-64"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 63
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-64",
+      "title": "Obligation normalization",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "semantic-foundation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-63"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 64
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-65",
+      "title": "Boundary, Receipt, and Transition contracts",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "semantic-foundation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-64"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 65
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-66",
+      "title": "Bounded development-chat projection planning",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "preparation-continuation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-65"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 66
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-67",
+      "title": "Development-chat package materialization",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "preparation-continuation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-66"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 67
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-68",
+      "title": "Boundary-specific continuation classification",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "preparation-continuation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-67"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 68
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-69",
+      "title": "Partial boundary-attempt records",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "preparation-continuation",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-68"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 69
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-70",
+      "title": "Generic collaboration results",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "results-acceptance-publication",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-69"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 70
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-71",
+      "title": "Collaboration-result applicability",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "results-acceptance-publication",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-70"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 71
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-72",
+      "title": "Atomic accepted-transition publication",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "results-acceptance-publication",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-71"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 72
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-73",
+      "title": "Read-only validation vertical slice",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "read-only-reconvergence",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-72"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 73
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-74",
+      "title": "Production DX consolidation",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "dx-compatibility",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 74
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-75",
+      "title": "Lead and Senior compatibility profiles",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "dx-compatibility",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-74"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 75
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-76",
+      "title": "Candidate repair",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-75",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 76
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-77",
+      "title": "Review publication",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-76",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 77
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-78",
+      "title": "Review assessment",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-77",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 78
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-79",
+      "title": "Review integration",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-78",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 79
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-80",
+      "title": "Post-integration synchronization",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-79",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 80
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-81",
+      "title": "Post-integration cleanup",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "mutation-boundaries",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-80",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 81
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-82",
+      "title": "Repository-specific orchestration demotion",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "orchestration-demotion",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-81",
+        "issue-73"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 82
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-85",
+      "title": "Repository manifest declaration contract",
+      "owner": "ulfbou/collab",
+      "program": "collab-core",
+      "horizon": "foundation",
+      "state": "COMPLETED",
+      "dependencies": [
+        "issue-62"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 85
+      },
+      "implementation": "implemented",
+      "integratedBy": {
+        "repository": "ulfbou/collab",
+        "pullRequest": 87
+      }
+    },
+    {
+      "id": "issue-16",
+      "title": "Read-only reconvergence and end-to-end validation input",
+      "owner": "ulfbou/collab",
+      "program": "related-evidence",
+      "horizon": "related-evidence",
+      "state": "ACCEPTED",
+      "dependencies": [],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 16
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-17",
+      "title": "Architecture provenance and proof-of-concept outcome record",
+      "owner": "ulfbou/collab",
+      "program": "related-evidence",
+      "horizon": "related-evidence",
+      "state": "ACCEPTED",
+      "dependencies": [],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 17
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-18",
+      "title": "Windows DX recovery and regression evidence",
+      "owner": "ulfbou/collab",
+      "program": "related-evidence",
+      "horizon": "related-evidence",
+      "state": "ACCEPTED",
+      "dependencies": [],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 18
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-39",
+      "title": "GitHub caching epic",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 39
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-42",
+      "title": "Secure repository-scoped persistent cache",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 42
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-43",
+      "title": "Conditional revalidation and stale policy",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 43
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-44",
+      "title": "Completed Actions evidence cache",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 44
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-45",
+      "title": "Mutation-aware cache invalidation",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 45
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-46",
+      "title": "Reusable evidence snapshots",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 46
+      },
+      "implementation": "not-implemented"
+    },
+    {
+      "id": "issue-47",
+      "title": "Cache operations, observability, documentation, and tests",
+      "owner": "ulfbou/collab",
+      "program": "github-caching",
+      "horizon": "separate-infrastructure",
+      "state": "ACCEPTED",
+      "dependencies": [
+        "issue-39"
+      ],
+      "hostedIssue": {
+        "repository": "ulfbou/collab",
+        "number": 47
+      },
+      "implementation": "not-implemented"
+    }
+  ],
+  "specifications": [
+    {
+      "id": "evidence-bound-workflow-library",
+      "owner": "ulfbou/collab",
+      "state": "PROPOSED",
+      "implementation": "not-implemented",
+      "mapsTo": [
+        "issue-63",
+        "issue-64",
+        "issue-65",
+        "issue-66",
+        "issue-67",
+        "issue-68",
+        "issue-69",
+        "issue-70",
+        "issue-71",
+        "issue-72",
+        "issue-73",
+        "issue-74",
+        "issue-75",
+        "issue-76",
+        "issue-77",
+        "issue-78",
+        "issue-79",
+        "issue-80",
+        "issue-81",
+        "issue-82"
+      ],
+      "acceptanceEvidence": null
+    },
+    {
+      "id": "gitdrift-external-repository-testing",
+      "owner": "ulfbou/gitdrift",
+      "state": "PROPOSED",
+      "implementation": "not-implemented",
+      "mapsTo": [
+        "external-harness"
+      ],
+      "acceptanceEvidence": null
+    }
+  ],
+  "supersessions": [],
+  "gates": [
+    {
+      "id": "mutation-after-read-only",
+      "kind": "read-only-before-mutation",
+      "requires": [
+        "issue-73"
+      ]
+    },
+    {
+      "id": "external-harness",
+      "kind": "external-harness",
+      "requires": [
+        "specification:gitdrift-external-repository-testing:ACCEPTED",
+        "issue-73"
+      ]
+    },
+    {
+      "id": "integration-synchronization-cleanup",
+      "kind": "ordered-responsibility",
+      "requires": [
+        "issue-79",
+        "issue-80",
+        "issue-81"
+      ]
+    },
+    {
+      "id": "library-extraction",
+      "kind": "independent-adoption",
+      "requires": [
+        "consumer:ulfbou/collab",
+        "consumer:gitdrift-external-harness",
+        "consumer:independent"
+      ]
+    }
+  ],
+  "statusEvidence": {
+    "observedAt": "2026-10-20T10:04:30Z",
+    "source": "../.dx/collab-controlled-roadmap-continuation.txt",
+    "controllingCommit": "8fb38d6cae09cc5732471c17e3806f0d5ca07560"
+  },
+  "nextImplementationItem": "issue-63"
+}

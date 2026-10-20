@@ -61,6 +61,7 @@ The detailed contracts are:
 - [Boundary contract](../contracts/boundaries.md)
 - [Receipt contract](../contracts/receipts.md)
 - [Result Acceptance contract](../contracts/result-acceptance.md)
+- [Controlled evidence-bound collaboration roadmap](../roadmap/evidence-bound-collaboration.md)
 
 ## Target lifecycle
 
