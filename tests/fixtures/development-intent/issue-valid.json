@@ -1,0 +1,15 @@
+{
+  "repository": "ulfbou/collab",
+  "number": 63,
+  "title": "architecture: establish Development Intent and authority resolution",
+  "body": "Derive DevelopmentIntent and resolve durable authorities.",
+  "state": "OPEN",
+  "labels": [
+    {"name": "type:contracts"},
+    {"name": "priority:foundation"}
+  ],
+  "milestone": {
+    "number": 5,
+    "title": "Collab: boundary-centric collaboration model"
+  }
+}

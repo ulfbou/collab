@@ -1,0 +1,38 @@
+{
+  "schema": "collab/repository-manifest/v1",
+  "repository": {"id": "ulfbou/collab"},
+  "product": {
+    "id": "collab",
+    "name": "Collab",
+    "purpose": "Evidence-grounded collaboration"
+  },
+  "lifecycle": "active",
+  "workspace": {"entryPoints": []},
+  "components": [],
+  "authorities": [
+    {
+      "id": "development-intent",
+      "kind": "contract",
+      "path": "docs/contracts/development-intent.md",
+      "scope": ["collab/development_intent.py"]
+    }
+  ],
+  "engineering": {"entryPoints": []},
+  "releaseUnits": [],
+  "versionDomains": [],
+  "boundaries": {
+    "public": [],
+    "internal": [],
+    "generated": [],
+    "historical": [],
+    "readOnly": []
+  },
+  "relationships": [],
+  "invariants": [],
+  "nonGoals": [],
+  "policy": {
+    "collection": {"include": [], "exclude": []},
+    "alignment": {"authorityIds": ["development-intent"]}
+  },
+  "extensions": {}
+}

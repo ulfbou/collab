@@ -1,0 +1,14 @@
+[
+  {
+    "id": "development-intent",
+    "kind": "contract",
+    "path": "docs/contracts/development-intent.md",
+    "scope": ["collab/development_intent.py"]
+  },
+  {
+    "id": "development-intent",
+    "kind": "policy",
+    "path": "docs/architecture/collaboration-model.md",
+    "scope": ["collab/development_intent.py"]
+  }
+]
