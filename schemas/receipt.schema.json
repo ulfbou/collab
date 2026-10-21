@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://collab.local/schemas/receipt.schema.json",
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "receiptId",
+    "boundaryId",
+    "scope",
+    "applicability",
+    "candidateIdentity",
+    "mutationIdentity",
+    "completionIdentity",
+    "evidenceIdentities",
+    "limitations",
+    "status",
+    "acceptanceState"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/receipt/v1"
+    },
+    "normalizationVersion": {
+      "const": "1"
+    },
+    "receiptId": {
+      "type": "string",
+      "pattern": "^sha256:receipt:v1:[0-9a-f]{64}$"
+    },
+    "boundaryId": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "configuration",
+        "validator",
+        "state",
+        "intent",
+        "authority",
+        "obligation",
+        "subject"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "configuration": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "validator": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "state": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "intent": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "authority": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "obligation": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        }
+      }
+    },
+    "candidateIdentity": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "mutationIdentity": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "completionIdentity": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "evidenceIdentities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+      },
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "status": {
+      "const": "issued"
+    },
+    "acceptanceState": {
+      "const": "not-accepted"
+    }
+  }
+}
