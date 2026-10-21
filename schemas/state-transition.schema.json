@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://collab.local/schemas/state-transition.schema.json",
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "transitionId",
+    "priorStateIdentity",
+    "priorState",
+    "boundaryId",
+    "attachedReceiptIds",
+    "invalidatedReceiptIds",
+    "proposedState",
+    "acceptanceState",
+    "workflowAdvanced"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/state-transition/v1"
+    },
+    "normalizationVersion": {
+      "const": "1"
+    },
+    "transitionId": {
+      "type": "string",
+      "pattern": "^sha256:state-transition:v1:[0-9a-f]{64}$"
+    },
+    "priorStateIdentity": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "priorState": {
+      "type": "object",
+      "required": [
+        "stateIdentity"
+      ]
+    },
+    "boundaryId": {
+      "type": "string",
+      "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+    },
+    "attachedReceiptIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+      },
+      "uniqueItems": true
+    },
+    "invalidatedReceiptIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+      },
+      "uniqueItems": true
+    },
+    "proposedState": {
+      "type": "object",
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "acceptanceState"
+            ]
+          },
+          {
+            "required": [
+              "workflowAdvanced"
+            ]
+          },
+          {
+            "required": [
+              "acceptedHistory"
+            ]
+          }
+        ]
+      }
+    },
+    "acceptanceState": {
+      "const": "not-accepted"
+    },
+    "workflowAdvanced": {
+      "const": false
+    }
+  }
+}

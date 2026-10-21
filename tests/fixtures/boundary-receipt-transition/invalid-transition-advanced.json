@@ -1,0 +1,25 @@
+{
+  "acceptanceState": "not-accepted",
+  "attachedReceiptIds": [
+    "sha256:receipt:v1:9934c0c58cc095b596a8247b4b42d69ba777c929cbdf02a04afca9c6facd8afa"
+  ],
+  "boundaryId": "sha256:boundary:v1:39d9235ad09ee5b826c71d8112d207bb872c431c3015cf30e25541669263f402",
+  "invalidatedReceiptIds": [],
+  "normalizationVersion": "1",
+  "priorState": {
+    "captureId": "capture-1",
+    "observations": [
+      {
+        "kind": "repository"
+      }
+    ],
+    "stateIdentity": "sha256:state:v1:5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "priorStateIdentity": "sha256:state:v1:5555555555555555555555555555555555555555555555555555555555555555",
+  "proposedState": {
+    "phase": "candidate-complete"
+  },
+  "schema": "collab/state-transition/v1",
+  "transitionId": "sha256:state-transition:v1:f0f93451dbd827638ece96f4bf87308a4c5e96d258a1817a22ab3daa6158ff2c",
+  "workflowAdvanced": true
+}

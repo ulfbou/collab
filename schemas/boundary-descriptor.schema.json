@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://collab.local/schemas/boundary-descriptor.schema.json",
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "boundaryId",
+    "responsibility",
+    "scope",
+    "identities",
+    "limitations",
+    "executionState"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/boundary-descriptor/v1"
+    },
+    "normalizationVersion": {
+      "const": "1"
+    },
+    "boundaryId": {
+      "type": "string",
+      "pattern": "^sha256:boundary:v1:[0-9a-f]{64}$"
+    },
+    "responsibility": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "configuration",
+        "validator",
+        "state",
+        "intent",
+        "authority",
+        "obligation",
+        "subject"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "configuration": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "validator": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "state": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "intent": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "authority": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "obligation": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "executionState": {
+      "const": "pending"
+    }
+  }
+}
