@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.collab.dev/development-intent/v1/schema.json",
+  "title": "Collab Development Intent",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "normalizationVersion",
+        "intentId",
+        "sourceKind",
+        "source",
+        "objective",
+        "expectedBoundary",
+        "hostedState",
+        "authoritySetId",
+        "provenance",
+        "limitations"
+      ],
+      "properties": {
+        "schema": {"const": "collab/development-intent/v1"},
+        "normalizationVersion": {"const": "1"},
+        "intentId": {
+          "type": "string",
+          "pattern": "^sha256:development-intent:v1:[0-9a-f]{64}$"
+        },
+        "sourceKind": {"const": "issue"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "number", "contentIdentity"],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "pattern": "^[^/\\s]+/[^/\\s]+$"
+            },
+            "number": {"type": "integer", "minimum": 1},
+            "contentIdentity": {
+              "type": "string",
+              "pattern": "^sha256:[a-z-]+:v1:[0-9a-f]{64}$"
+            }
+          }
+        },
+        "objective": {"type": "string", "minLength": 1},
+        "expectedBoundary": {"type": "string", "minLength": 1},
+        "hostedState": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "labels", "milestone"],
+          "properties": {
+            "state": {"enum": ["OPEN", "CLOSED"]},
+            "labels": {
+              "type": "array",
+              "items": {"type": "string"},
+              "uniqueItems": true
+            },
+            "milestone": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["number", "title"],
+              "properties": {
+                "number": {"type": "integer", "minimum": 1},
+                "title": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        },
+        "authoritySetId": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:authority-set:v1:[0-9a-f]{64}$"
+        },
+        "provenance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "object", "additionalProperties": true}
+        },
+        "limitations": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "normalizationVersion",
+        "intentId",
+        "sourceKind",
+        "source",
+        "objective",
+        "expectedBoundary",
+        "allowedMutation",
+        "changedPathScope",
+        "exclusions",
+        "acceptanceConditions",
+        "dependencies",
+        "authoritySetId",
+        "provenance",
+        "limitations"
+      ],
+      "properties": {
+        "schema": {"const": "collab/development-intent/v1"},
+        "normalizationVersion": {"const": "1"},
+        "intentId": {
+          "type": "string",
+          "pattern": "^sha256:development-intent:v1:[0-9a-f]{64}$"
+        },
+        "sourceKind": {"const": "accepted-operational-authorization"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "authorizationId", "contentIdentity"],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "pattern": "^[^/\\s]+/[^/\\s]+$"
+            },
+            "authorizationId": {"type": "string", "minLength": 1},
+            "contentIdentity": {
+              "type": "string",
+              "pattern": "^sha256:[a-z-]+:v1:[0-9a-f]{64}$"
+            }
+          }
+        },
+        "objective": {"type": "string", "minLength": 1},
+        "expectedBoundary": {"type": "string", "minLength": 1},
+        "allowedMutation": {"type": "boolean"},
+        "changedPathScope": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "acceptanceConditions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "authoritySetId": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:authority-set:v1:[0-9a-f]{64}$"
+        },
+        "provenance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "object", "additionalProperties": true}
+        },
+        "limitations": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  ]
+}

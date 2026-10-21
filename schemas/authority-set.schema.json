@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.collab.dev/authority-set/v1/schema.json",
+  "title": "Collab AuthoritySet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "authoritySetId",
+    "repository",
+    "status",
+    "declaredAuthorities",
+    "resolvedAuthorities",
+    "conflicts",
+    "absentDeclarations",
+    "invalidDeclarations",
+    "incompleteEvidence",
+    "provenance",
+    "limitations"
+  ],
+  "properties": {
+    "schema": {"const": "collab/authority-set/v1"},
+    "normalizationVersion": {"const": "1"},
+    "authoritySetId": {
+      "type": "string",
+      "pattern": "^sha256:authority-set:v1:[0-9a-f]{64}$"
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/\\s]+/[^/\\s]+$"
+    },
+    "status": {"enum": ["resolved", "incomplete", "conflicted"]},
+    "declaredAuthorities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/declaration"}
+    },
+    "resolvedAuthorities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/resolvedAuthority"}
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "absentDeclarations": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "invalidDeclarations": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "incompleteEvidence": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "provenance": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "declarationBase": {
+      "type": "object",
+      "required": ["id", "kind", "path", "scope", "readOnly"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {
+          "enum": ["policy", "contract", "schema", "decision", "documentation"]
+        },
+        "path": {"type": "string", "minLength": 1},
+        "scope": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "readOnly": {"type": "boolean"}
+      }
+    },
+    "declaration": {
+      "allOf": [
+        {"$ref": "#/$defs/declarationBase"},
+        {
+          "type": "object",
+          "required": ["source"],
+          "properties": {
+            "source": {
+              "enum": ["repository-manifest", "explicit-document"]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "resolvedAuthority": {
+      "allOf": [
+        {"$ref": "#/$defs/declarationBase"},
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "primaryOwner",
+            "contentIdentity",
+            "implementationStatus",
+            "currentStateStatus"
+          ],
+          "properties": {
+            "source": {
+              "enum": ["repository-manifest", "explicit-document"]
+            },
+            "primaryOwner": {"const": "durable-documentation"},
+            "contentIdentity": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "implementationStatus": {
+              "const": "not-established-by-authority-resolution"
+            },
+            "currentStateStatus": {
+              "const": "not-established-by-authority-resolution"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}
