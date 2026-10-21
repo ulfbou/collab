@@ -1,0 +1,57 @@
+{
+  "acceptanceDecision": "not-performed",
+  "authoritySetId": "sha256:authority-set:v1:2222222222222222222222222222222222222222222222222222222222222222",
+  "conflicts": [],
+  "incompleteObligations": [],
+  "intentId": "sha256:development-intent:v1:3333333333333333333333333333333333333333333333333333333333333333",
+  "limitations": [],
+  "normalizationVersion": "1",
+  "obligationSetId": "sha256:obligation-set:v1:d752e182bfbc1d4b24674b09c837c75792eedcf985740836f08990b7dfb9fb4d",
+  "obligations": [
+    {
+      "affectedScope": [
+        "a",
+        "b"
+      ],
+      "completionState": "unverified",
+      "limitations": [
+        "not executed"
+      ],
+      "obligationId": "sha256:obligation:v1:f1273ff57af331e13d9f7b424b351be03fd066ec1fe4fe9c6cab01b009f2b50d",
+      "requiredEvidence": [
+        "e1",
+        "e2"
+      ],
+      "sourceRef": {
+        "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+        "location": "issue:64",
+        "role": "change-authorization",
+        "sourceId": "#64",
+        "sourceKind": "issue"
+      },
+      "sourceRequirementId": "R1",
+      "statement": "Preserve provenance.",
+      "verification": {
+        "kind": "comparison",
+        "mutating": false,
+        "requiredCapabilities": [
+          "read"
+        ],
+        "successCondition": "represented",
+        "target": "output"
+      }
+    }
+  ],
+  "provenance": [
+    {
+      "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "location": "issue:64",
+      "role": "change-authorization",
+      "sourceId": "#64",
+      "sourceKind": "issue"
+    }
+  ],
+  "schema": "collab/obligation-set/v1",
+  "status": "normalized",
+  "verificationExecuted": false
+}

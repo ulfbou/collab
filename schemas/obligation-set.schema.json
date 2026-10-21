@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/obligation-set.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "intentId",
+    "authoritySetId",
+    "status",
+    "provenance",
+    "obligations",
+    "incompleteObligations",
+    "conflicts",
+    "limitations",
+    "verificationExecuted",
+    "acceptanceDecision",
+    "obligationSetId"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/obligation-set/v1"
+    },
+    "normalizationVersion": {
+      "const": "1"
+    },
+    "intentId": {
+      "type": "string",
+      "pattern": "^sha256:development-intent:v1:[0-9a-f]{64}$"
+    },
+    "authoritySetId": {
+      "type": "string",
+      "pattern": "^sha256:authority-set:v1:[0-9a-f]{64}$"
+    },
+    "obligationSetId": {
+      "type": "string",
+      "pattern": "^sha256:obligation-set:v1:[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": [
+        "normalized",
+        "incomplete",
+        "conflicted"
+      ]
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/obligation"
+      }
+    },
+    "incompleteObligations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/incomplete"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conflict"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verificationExecuted": {
+      "const": false
+    },
+    "acceptanceDecision": {
+      "const": "not-performed"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "normalized"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "incompleteObligations": {
+            "maxItems": 0
+          },
+          "conflicts": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "incomplete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "incompleteObligations": {
+            "minItems": 1
+          },
+          "conflicts": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "conflicted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "conflicts": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "sourceKind",
+        "sourceId",
+        "location",
+        "contentIdentity"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "change-authorization",
+            "durable-authority",
+            "observed-evidence"
+          ]
+        },
+        "sourceKind": {
+          "enum": [
+            "issue",
+            "operational-authorization",
+            "policy",
+            "contract",
+            "schema",
+            "decision",
+            "documentation",
+            "repository-observation"
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contentIdentity": {
+          "type": "string",
+          "pattern": "^sha256:(?:[0-9a-f]{64}|[a-z-]+:v1:[0-9a-f]{64})$"
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "target",
+        "successCondition",
+        "requiredCapabilities",
+        "mutating"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "command",
+            "schema",
+            "inspection",
+            "comparison",
+            "hosted-query"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "successCondition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mutating": {
+          "const": false
+        }
+      }
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligationId",
+        "sourceRequirementId",
+        "sourceRef",
+        "statement",
+        "affectedScope",
+        "requiredEvidence",
+        "verification",
+        "limitations",
+        "completionState"
+      ],
+      "properties": {
+        "obligationId": {
+          "type": "string",
+          "pattern": "^sha256:obligation:v1:[0-9a-f]{64}$"
+        },
+        "sourceRequirementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/source"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "affectedScope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requiredEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "completionState": {
+          "const": "unverified"
+        }
+      }
+    },
+    "incomplete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incompleteObligationId",
+        "sourceRequirementId",
+        "sourceRef",
+        "missingFields",
+        "limitations"
+      ],
+      "properties": {
+        "incompleteObligationId": {
+          "type": "string",
+          "pattern": "^sha256:incomplete-obligation:v1:[0-9a-f]{64}$"
+        },
+        "sourceRequirementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/source"
+        },
+        "missingFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "statement",
+              "affectedScope",
+              "requiredEvidence",
+              "verification",
+              "limitations",
+              "authoritativeSource"
+            ]
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflictId",
+        "origin",
+        "authoritySetId",
+        "upstreamConflict",
+        "resolution",
+        "precedence"
+      ],
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "pattern": "^sha256:obligation-conflict:v1:[0-9a-f]{64}$"
+        },
+        "origin": {
+          "const": "authority-set"
+        },
+        "authoritySetId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "upstreamConflict": {
+          "type": "object"
+        },
+        "resolution": {
+          "const": "unresolved"
+        },
+        "precedence": {
+          "const": "not-inferred"
+        }
+      }
+    }
+  }
+}
