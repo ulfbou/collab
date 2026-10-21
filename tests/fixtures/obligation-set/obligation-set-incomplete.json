@@ -1,0 +1,41 @@
+{
+  "acceptanceDecision": "not-performed",
+  "authoritySetId": "sha256:authority-set:v1:2222222222222222222222222222222222222222222222222222222222222222",
+  "conflicts": [],
+  "incompleteObligations": [
+    {
+      "incompleteObligationId": "sha256:incomplete-obligation:v1:b49e7c74dd2983a39af89e929e01342b0d8757cd11e2799fde7f410ca8a4e58d",
+      "limitations": [
+        "not executed"
+      ],
+      "missingFields": [
+        "statement"
+      ],
+      "sourceRef": {
+        "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+        "location": "issue:64",
+        "role": "change-authorization",
+        "sourceId": "#64",
+        "sourceKind": "issue"
+      },
+      "sourceRequirementId": "R1"
+    }
+  ],
+  "intentId": "sha256:development-intent:v1:3333333333333333333333333333333333333333333333333333333333333333",
+  "limitations": [],
+  "normalizationVersion": "1",
+  "obligationSetId": "sha256:obligation-set:v1:e610b59c80d487c79a19ff82f7b2dbfda854affff7524727fe844f82aa69e935",
+  "obligations": [],
+  "provenance": [
+    {
+      "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "location": "issue:64",
+      "role": "change-authorization",
+      "sourceId": "#64",
+      "sourceKind": "issue"
+    }
+  ],
+  "schema": "collab/obligation-set/v1",
+  "status": "incomplete",
+  "verificationExecuted": false
+}

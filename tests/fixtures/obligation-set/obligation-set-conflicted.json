@@ -1,0 +1,68 @@
+{
+  "acceptanceDecision": "not-performed",
+  "authoritySetId": "sha256:authority-set:v1:2222222222222222222222222222222222222222222222222222222222222222",
+  "conflicts": [
+    {
+      "authoritySetId": "sha256:authority-set:v1:2222222222222222222222222222222222222222222222222222222222222222",
+      "conflictId": "sha256:obligation-conflict:v1:24ef10823c8340963c69996e3def9d6bb04443baaa93ee73fd50cfd0e9b0903e",
+      "origin": "authority-set",
+      "precedence": "not-inferred",
+      "resolution": "unresolved",
+      "upstreamConflict": {
+        "authorityId": "x"
+      }
+    }
+  ],
+  "incompleteObligations": [],
+  "intentId": "sha256:development-intent:v1:3333333333333333333333333333333333333333333333333333333333333333",
+  "limitations": [],
+  "normalizationVersion": "1",
+  "obligationSetId": "sha256:obligation-set:v1:69fc10c8420e30843008b06616163c8417cf764dc079f3e8aeceb7a214db8c74",
+  "obligations": [
+    {
+      "affectedScope": [
+        "a",
+        "b"
+      ],
+      "completionState": "unverified",
+      "limitations": [
+        "not executed"
+      ],
+      "obligationId": "sha256:obligation:v1:f1273ff57af331e13d9f7b424b351be03fd066ec1fe4fe9c6cab01b009f2b50d",
+      "requiredEvidence": [
+        "e1",
+        "e2"
+      ],
+      "sourceRef": {
+        "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+        "location": "issue:64",
+        "role": "change-authorization",
+        "sourceId": "#64",
+        "sourceKind": "issue"
+      },
+      "sourceRequirementId": "R1",
+      "statement": "Preserve provenance.",
+      "verification": {
+        "kind": "comparison",
+        "mutating": false,
+        "requiredCapabilities": [
+          "read"
+        ],
+        "successCondition": "represented",
+        "target": "output"
+      }
+    }
+  ],
+  "provenance": [
+    {
+      "contentIdentity": "sha256:issue-content:v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "location": "issue:64",
+      "role": "change-authorization",
+      "sourceId": "#64",
+      "sourceKind": "issue"
+    }
+  ],
+  "schema": "collab/obligation-set/v1",
+  "status": "conflicted",
+  "verificationExecuted": false
+}
