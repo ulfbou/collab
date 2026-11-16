@@ -11,7 +11,7 @@ printf 'secret\n' > "$TMP/src/docs/private/secret.md"
 printf 'print(1)\n' > "$TMP/src/code/main.py"
 printf '\377\000\376' > "$TMP/src/blob.bin"
 printf '%s\n' '%%DX v1.3.1' '%%FILE path="a.txt"' 'x' '%%ENDBLOCK' '%%END' > "$TMP/src/nested.dx.txt"
-python3 "$ROOT/dx.py" pack --root "$TMP/src" --out "$TMP/text.dx.txt" --include docs --include '*.py' --exclude docs/private
+python3 "$ROOT/dx.py" pack --root "$TMP/src" --out "$TMP/text.dx.txt" --path docs --path code/main.py --exclude docs/private
 ! grep -q 'secret.md' "$TMP/text.dx.txt"
 grep -q 'docs/keep.md' "$TMP/text.dx.txt"
 grep -q 'code/main.py' "$TMP/text.dx.txt"

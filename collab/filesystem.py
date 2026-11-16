@@ -45,3 +45,14 @@ def atomic_write(path: Path, writer, *, mode: int | None = None, replace: bool =
     finally:
         try: os.unlink(temporary)
         except FileNotFoundError: pass
+
+
+def write_text_atomic(path: Path, value: str, *, replace: bool = True) -> None:
+    """Write one UTF-8/LF text value atomically."""
+    atomic_write_text(path, lambda stream: stream.write(value), replace=replace)
+
+def write_json_atomic(path: Path, value: object, *, replace: bool = True) -> None:
+    """Write deterministic UTF-8 JSON atomically."""
+    import json
+    payload=json.dumps(value,indent=2,ensure_ascii=False,sort_keys=True)+"\n"
+    write_text_atomic(path,payload,replace=replace)

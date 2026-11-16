@@ -25,3 +25,26 @@ def discover_repository(start: Path=Path.cwd()) -> RepositoryIdentity:
     default_result=run_command(['git','symbolic-ref','--quiet','--short','refs/remotes/origin/HEAD'],cwd=root,accepted_exit_codes=(0,1))
     default=default_result.stdout.decode().strip().removeprefix('origin/') or None
     return RepositoryIdentity(root,origin,canonical_github_repository(origin),head,branch,default)
+
+
+class GitStateError(RuntimeError):
+    pass
+
+def capture_git_state(repository_root: Path) -> dict[str, object]:
+    """Capture immutable Git identity plus complete tracked and untracked status."""
+    try:
+        return {
+            "head": _text(["git","rev-parse","HEAD"],repository_root),
+            "branch": _text(["git","branch","--show-current"],repository_root),
+            "detached": not bool(_text(["git","branch","--show-current"],repository_root)),
+            "status": _text(["git","status","--porcelain=v1","-uall"],repository_root).splitlines(),
+            "tracked_diff": _text(["git","diff","--no-ext-diff","--binary","HEAD","--","."],repository_root),
+        }
+    except CommandError as exc:
+        raise GitStateError(str(exc)) from exc
+
+def tracked_source_status(repository_root: Path) -> list[str]:
+    try:
+        return _text(["git","status","--porcelain=v1","--untracked-files=no"],repository_root).splitlines()
+    except CommandError as exc:
+        raise GitStateError(str(exc)) from exc

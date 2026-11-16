@@ -8,7 +8,7 @@ def listing(result):
 
 def test_path_hard_exclude_and_positive_union(tmp_path):
  r=tmp_path/'r';(r/'src/cache').mkdir(parents=True);(r/'src/a.py').write_text('a');(r/'src/cache/x.py').write_text('x');(r/'README.MD').write_text('m')
- p=run('pack',r,'--path','src','--path','README.MD','--include','src/','--include-extension','.md','--exclude','src/cache/','-o','-','-q')
+ p=run('pack',r,'--path','src','--path','README.MD','--include','**/*.py','--include-extension','.md','--exclude','src/cache/','-o','-','-q')
  assert p.returncode==0,p.stderr
  q=subprocess.run([sys.executable,str(DX),'inspect','-','--list'],input=p.stdout,stdout=subprocess.PIPE)
  assert q.stdout.splitlines()==[b'README.MD',b'src/a.py']

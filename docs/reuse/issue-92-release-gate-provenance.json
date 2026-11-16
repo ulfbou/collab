@@ -1,0 +1,86 @@
+{
+  "issue": "ulfbou/collab#92",
+  "records": [
+    {
+      "adaptation": "bounded generic reuse for ulfbou/collab#92",
+      "sha256": "7f7b1b7a9c743fedfdce74ac234d9a350eb2291c7dcb2f638fdb2834b2e19acd",
+      "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+      "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+      "source_path": "release_gate/evidence.py",
+      "source_repository": "https://github.com/ulfbou/dx.domain",
+      "source_sha256": "7f7b1b7a9c743fedfdce74ac234d9a350eb2291c7dcb2f638fdb2834b2e19acd",
+      "target_path": "collab/filesystem.py",
+      "target_sha256": "02d484c889a5da13773185de9128572b19a9633eb154f3206719597f116cf1d5",
+      "target_symbols": [
+        "write_text_atomic",
+        "write_json_atomic"
+      ]
+    },
+    {
+      "adaptation": "bounded generic reuse for ulfbou/collab#92",
+      "sha256": "1c1382c3664937f7dc72a5bbfdb63c9716b72ad9812b967f0b88eff4aad6a23d",
+      "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+      "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+      "source_path": "release_gate/process.py",
+      "source_repository": "https://github.com/ulfbou/dx.domain",
+      "source_sha256": "1c1382c3664937f7dc72a5bbfdb63c9716b72ad9812b967f0b88eff4aad6a23d",
+      "target_path": "collab/process.py",
+      "target_sha256": "42182ecb308e55d59635a1e888f8cbefaf7f96f18f49243afc6dc5869c81e349",
+      "target_symbols": [
+        "run_process",
+        "terminate_process_tree"
+      ]
+    },
+    {
+      "adaptation": "bounded generic reuse for ulfbou/collab#92",
+      "sha256": "db72728e2af26d2438b7f9ce5ae58f2ec08c942062bab862166df42a1a76eac0",
+      "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+      "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+      "source_path": "release_gate/model.py",
+      "source_repository": "https://github.com/ulfbou/dx.domain",
+      "source_sha256": "db72728e2af26d2438b7f9ce5ae58f2ec08c942062bab862166df42a1a76eac0",
+      "target_path": "collab/process.py",
+      "target_sha256": "42182ecb308e55d59635a1e888f8cbefaf7f96f18f49243afc6dc5869c81e349",
+      "target_symbols": [
+        "ExecutionClassification",
+        "ProcessResult"
+      ]
+    },
+    {
+      "adaptation": "bounded generic reuse for ulfbou/collab#92",
+      "sha256": "f5b1b610a9476c403ed0e0d54a22d71038116ab1170fd347d29608259b2e9004",
+      "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+      "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+      "source_path": "release_gate/git_state.py",
+      "source_repository": "https://github.com/ulfbou/dx.domain",
+      "source_sha256": "f5b1b610a9476c403ed0e0d54a22d71038116ab1170fd347d29608259b2e9004",
+      "target_path": "collab/repository.py",
+      "target_sha256": "1ea40592df3ef92b397fbee8fef9b1f0a4796df7222f0e9654a8c97a5bd32470",
+      "target_symbols": [
+        "GitStateError",
+        "capture_git_state",
+        "tracked_source_status"
+      ]
+    },
+    {
+      "adaptation": "bounded generic reuse for ulfbou/collab#92",
+      "sha256": "c1f9a205ec68a65a6673c7fc0cec0f74d960abc8f446c92ba79d08d17e24656f",
+      "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+      "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+      "source_path": "tests/test_final_carrier_real.py",
+      "source_repository": "https://github.com/ulfbou/dx.domain",
+      "source_sha256": "c1f9a205ec68a65a6673c7fc0cec0f74d960abc8f446c92ba79d08d17e24656f",
+      "target_path": "collab/dx_verification.py",
+      "target_sha256": "47121105826f0217799e3eacdaec6062fc88d11f6d748dc53b09830ab6e8a957",
+      "target_symbols": [
+        "CarrierVerification",
+        "verify_final_carrier"
+      ]
+    }
+  ],
+  "schema": "collab.reuse-provenance/1.0",
+  "source_carrier_filename": "dx.domain.dx.txt",
+  "source_carrier_sha256": "83172ea1b0dbbf74a117291e2e06839fe0725246a22f60f98d0253fe25c90e3a",
+  "source_commit": "6092191428a2004aee33ee0c4599a0f534c7b537",
+  "source_repository": "https://github.com/ulfbou/dx.domain"
+}

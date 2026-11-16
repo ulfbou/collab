@@ -1,7 +1,7 @@
 # DX Include and Exclude Filtering Specification
 
 Status: Proposed, implementation-ready
-Target: dx.py v2.1
+Target: unreleased dx.py v2.0.0 completion increment
 Scope: Candidate discovery, path-rule evaluation, content policy, diagnostics, Git integration, safety, compatibility, and verification for `dx.py pack`
 
 ## 1. Purpose
@@ -573,7 +573,7 @@ For consistency:
 - ordinary walks omit encountered symlinks and may report them under verbose diagnostics;
 - direct `SOURCE`, `--path`, `--only`, and `--from-git` references to symlinks fail with exit code 4.
 
-DX v2.1 has no implicit symlink-dereference mode.
+DX v2.0.0 has no implicit symlink-dereference mode.
 
 ### 15.3 Race resistance
 
