@@ -102,7 +102,19 @@ class HostedRepositoryCollector:
             endpoints={"issue":"issues","pr":"pulls","milestone":"milestones","branch":"branches","commit":"commits"}
             if query.kind not in endpoints: raise ObservationError("bounded query kind must be issue, pr, milestone, branch, or commit")
             content=self._api(f"{base}/{endpoints[query.kind]}/{query.value}")
-            selected={"kind":query.kind,"value":query.value,"content":content,"complete":True,"sourceIdentity":_identity(content)}
+            related={}
+            if query.kind in ("issue","pr"):
+                related["comments"]=self._api(f"{base}/issues/{query.value}/comments?per_page=100",True)
+            if query.kind=="pr":
+                for key,endpoint in {
+                    "reviews":f"pulls/{query.value}/reviews?per_page=100",
+                    "reviewComments":f"pulls/{query.value}/comments?per_page=100",
+                    "commits":f"pulls/{query.value}/commits?per_page=100",
+                    "files":f"pulls/{query.value}/files?per_page=100",
+                }.items():
+                    related[key]=self._api(f"{base}/{endpoint}",True)
+            selected={"kind":query.kind,"value":query.value,"content":content,"related":related,
+                      "complete":True,"sourceIdentity":_identity({"content":content,"related":related})}
         return {"schemaVersion":"1.0","kind":"HostedRepositoryObservation","captureSessionId":self.session,"capturedAt":_now(),
           "repository":self.repository,"transport":"github-rest-via-gh","fallbackReason":None,"defaultBranchRef":repo.get("default_branch"),
           "domains":domains,"boundedQuery":selected,"complete":True,"limitations":[]}
