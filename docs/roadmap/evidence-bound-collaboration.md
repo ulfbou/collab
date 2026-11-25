@@ -165,3 +165,58 @@ Gitdrift harness, DX codec changes, compatibility adaptation, mutation,
 publication, review, integration, synchronization, cleanup, automatic issue
 closure, or a standalone library. It never substitutes roadmap claims for live
 repository or hosted evidence.
+<!-- ordinary-chat-first-migration:v1 -->
+## Future increment: ordinary-chat-first collaboration migration
+
+**State:** Proposed future increment
+**Authority:** Requires separate acceptance before implementation
+**Dependency:** Accepted `docs/specifications/chat-collaboration-model.md` and accepted compatibility boundary
+**Effect on current roadmap:** None until accepted; the current evidence-bound sequence and unrelated work continue under existing authority
+
+### Objective
+
+Add an ordinary-chat-first entry model and proportionate role separation without replacing Collab's durable semantic model or invalidating the existing Lead and Senior compatibility workflow.
+
+### Included scope
+
+1. accept the chat-collaboration specification;
+2. map existing Lead and Senior profiles, packages, headings, return packages, and `nextConversation` values;
+3. define compatibility between current handoffs and the complete routing envelope;
+4. implement ordinary-chat-first entry behavior;
+5. implement proportionate role separation using the accepted new-chat criteria; and
+6. validate the migration end to end.
+
+### Preserved invariants
+
+- Development Intent, Authority Set, normalized obligations, Current State Record, Boundary Descriptor, Receipt, Collaboration Result, Result Acceptance, and State Transition retain their accepted meanings.
+- Evidence, authority, decisions, results, and receipts remain inputs to Result Acceptance.
+- Only successful Result Acceptance creates an accepted State Transition and advances durable workflow state.
+- Existing Lead and Senior compatibility artifacts remain valid until a separately accepted migration boundary replaces or consolidates them.
+- Existing scripts are not changed merely to rename responsibilities.
+- Current roadmap increments and unrelated implementation, including `bundle.py` work, are not blocked by this future increment.
+
+### Required evidence
+
+- compatibility mapping for all affected Lead and Senior artifacts and producers;
+- schema migration assessment showing additive or explicitly accepted changes;
+- ordinary-chat-first scenario completed without requiring a separate role chat when separation is unnecessary;
+- separated-role scenario covering a valid handoff and return route;
+- rejection or blocked-result evidence for stale, misrouted, unauthorized, or incomplete handoffs under the new contract;
+- replacement-chat continuation scenario;
+- non-regression evidence for the existing Lead/Senior workflow; and
+- proof that Result Acceptance remains the only durable transition point.
+
+### Acceptance boundary
+
+This increment may enter implementation only after both the chat-collaboration specification and its compatibility boundary are accepted. Completion requires end-to-end migration validation and a separate Result Acceptance producing the applicable accepted State Transition.
+
+### Explicit deferrals
+
+- removal of Lead or Senior compatibility workflows;
+- renaming existing packages or output headings solely for terminology alignment;
+- portfolio orchestration;
+- autonomous role invocation;
+- cross-repository canonical workspace state;
+- generic work-item registries;
+- transaction ledgers for routine chat interaction; and
+- new commands not justified by the accepted specification and demonstrated migration need.
