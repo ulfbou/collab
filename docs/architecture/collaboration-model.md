@@ -201,3 +201,21 @@ This architecture does not:
   implement schemas, identity, capture, preparation, continuation, acceptance,
   migrations, commands, and workflow changes. Those roadmap obligations are
   not implemented behavior.
+<!-- collab-chat-model-reference:v1 -->
+## Chat collaboration model
+
+Collab's durable semantic model remains:
+
+Development Intent
+→ Authority Set
+→ normalized obligations
+→ Current State Record
+→ Boundary Descriptor
+→ bounded continuation
+→ Receipt and Collaboration Result
+→ Result Acceptance
+→ accepted State Transition
+
+Evidence, authority, decisions, results, and receipts provide inputs to Result Acceptance. Only successful Result Acceptance creates an accepted State Transition and advances durable Collab workflow state. A chat interaction, handoff, mechanism invocation, Receipt, or Collaboration Result does not itself advance durable state.
+
+The target model for ordinary-chat-first use, user-mediated role chats, cross-chat artifact movement, and chat replacement is specified in [`../specifications/chat-collaboration-model.md`](../specifications/chat-collaboration-model.md). That specification adds chat responsibilities around the durable semantic model above. It does not replace or redefine Development Intent, Authority Set, normalized obligations, Current State Record, Boundary Descriptor, Receipt, Collaboration Result, Result Acceptance, or State Transition.
