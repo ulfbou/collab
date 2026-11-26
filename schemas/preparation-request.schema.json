@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "collab/preparation-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "boundary", "selection", "requiredDomains", "limits"],
+  "properties": {
+    "schema": {"const": "collab/preparation-request/v1"},
+    "boundary": {"type": "object", "required": ["boundaryId", "status"], "properties": {"boundaryId": {"type": "string", "minLength": 1}, "status": {"const": "pending"}}, "additionalProperties": true},
+    "selection": {"enum": ["STATE_ONLY", "FOCUSED", "BROAD", "EXPLICIT_FULL"]},
+    "requiredDomains": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "limits": {"type": "object", "additionalProperties": false, "required": ["bytes", "artifacts"], "properties": {"bytes": {"type": "integer", "minimum": 0}, "artifacts": {"type": "integer", "minimum": 0}}},
+    "explicitItemIds": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "allOf": [{"if": {"properties": {"selection": {"const": "EXPLICIT_FULL"}}}, "then": {"required": ["explicitItemIds"], "properties": {"explicitItemIds": {"minItems": 1}}}}]
+}
