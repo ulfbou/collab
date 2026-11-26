@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "collab/preparation-plan/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "planId", "boundary", "selection", "selectedItems", "omissions", "requiredDomains", "limitations", "limits", "totals", "mutationSentinel"],
+  "properties": {
+    "schema": {"const": "collab/preparation-plan/v1"},
+    "planId": {"pattern": "^sha256:preparation-plan:v1:[0-9a-f]{64}$"},
+    "boundary": {"type": "object", "additionalProperties": false, "required": ["boundaryId", "status"], "properties": {"boundaryId": {"type": "string", "minLength": 1}, "status": {"const": "pending"}}},
+    "selection": {"enum": ["STATE_ONLY", "FOCUSED", "BROAD", "EXPLICIT_FULL"]},
+    "selectedItems": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["itemId", "domain", "byteSize", "artifactCount", "reasonCode"], "properties": {"itemId": {"type": "string", "minLength": 1}, "domain": {"type": "string", "minLength": 1}, "byteSize": {"type": "integer", "minimum": 0}, "artifactCount": {"type": "integer", "minimum": 1}, "reasonCode": {"enum": ["state-record", "required-domain", "broad-boundary-context", "explicit-full"]}}}},
+    "omissions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["itemId", "reasonCode"], "properties": {"itemId": {"type": "string", "minLength": 1}, "reasonCode": {"type": "string", "minLength": 1}}}},
+    "requiredDomains": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["domain", "status"], "properties": {"domain": {"type": "string", "minLength": 1}, "status": {"enum": ["complete", "limited"]}}}},
+    "limitations": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["domain", "code"], "properties": {"domain": {"type": "string", "minLength": 1}, "code": {"const": "required-domain-incomplete"}}}},
+    "limits": {"type": "object", "additionalProperties": false, "required": ["bytes", "artifacts"], "properties": {"bytes": {"type": "integer", "minimum": 0}, "artifacts": {"type": "integer", "minimum": 0}}},
+    "totals": {"type": "object", "additionalProperties": false, "required": ["bytes", "artifacts"], "properties": {"bytes": {"type": "integer", "minimum": 0}, "artifacts": {"type": "integer", "minimum": 0}}},
+    "mutationSentinel": {"const": {"writesPerformed": false, "boundaryAdvanced": false, "packageMaterialized": false}}
+  }
+}
