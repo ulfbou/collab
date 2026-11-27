@@ -1,0 +1,62 @@
+{
+  "schema": "collab/collaboration-result/v1",
+  "normalizationVersion": "1",
+  "boundaryId": "sha256:boundary:v1:0000000000000000000000000000000000000000000000000000000000000000",
+  "boundaryResponsibility": "IMPLEMENT_CANDIDATE",
+  "inputCaptureId": "sha256:capture:v1:0000000000000000000000000000000000000000000000000000000000000000",
+  "semanticStateId": "sha256:state:v1:0000000000000000000000000000000000000000000000000000000000000000",
+  "applicabilityIdentities": {
+    "authority": "sha256:authority:v1:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "responsibility": "IMPLEMENT_CANDIDATE",
+  "outcome": "completed",
+  "claims": [
+    {
+      "id": "claim-1",
+      "description": "implemented",
+      "artifactRefs": [
+        "artifact-1"
+      ],
+      "receiptRefs": [
+        "receipt-1"
+      ]
+    }
+  ],
+  "reportedObservations": [
+    {
+      "id": "observation-1",
+      "description": "tests reported green"
+    }
+  ],
+  "candidates": [],
+  "artifacts": [
+    {
+      "id": "artifact-1",
+      "description": "candidate",
+      "identity": "sha256:artifact:v1:0000000000000000000000000000000000000000000000000000000000000000",
+      "path": "candidate/result.json"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "receipt-1",
+      "description": "local verification",
+      "identity": "sha256:receipt:v1:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "verificationEvidence": [],
+  "changedPaths": [],
+  "mutationEvidence": [],
+  "diagnostics": [],
+  "obligationClaims": [],
+  "completeness": "complete",
+  "limitations": [],
+  "documentationImpact": [
+    "docs/contracts/collaboration-result.md"
+  ],
+  "requestedNextResponsibility": {
+    "responsibility": "ASSESS_RESULT",
+    "prerequisites": [],
+    "advisory": true
+  }
+}

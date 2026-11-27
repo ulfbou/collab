@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/collaboration-result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","normalizationVersion","boundaryId","boundaryResponsibility","inputCaptureId","semanticStateId","applicabilityIdentities","responsibility","outcome","claims","reportedObservations","candidates","artifacts","receipts","verificationEvidence","changedPaths","mutationEvidence","diagnostics","obligationClaims","completeness","limitations","documentationImpact","requestedNextResponsibility"],
+  "properties": {
+    "schema":{"const":"collab/collaboration-result/v1"},
+    "normalizationVersion":{"const":"1"},
+    "resultId":{"type":"string","pattern":"^sha256:collaboration-result:v1:[0-9a-f]{64}$"},
+    "boundaryId":{"type":"string","pattern":"^sha256:boundary:v1:[0-9a-f]{64}$"},
+    "boundaryResponsibility":{"type":"string","minLength":1},
+    "inputCaptureId":{"$ref":"#/$defs/identity"},
+    "semanticStateId":{"$ref":"#/$defs/identity"},
+    "applicabilityIdentities":{"type":"object","minProperties":1,"additionalProperties":{"$ref":"#/$defs/identity"}},
+    "responsibility":{"type":"string","minLength":1},
+    "outcome":{"enum":["completed","failed","blocked","not-applicable"]},
+    "claims":{"$ref":"#/$defs/records"},"reportedObservations":{"$ref":"#/$defs/records"},"candidates":{"$ref":"#/$defs/records"},"artifacts":{"$ref":"#/$defs/records"},"receipts":{"$ref":"#/$defs/records"},"verificationEvidence":{"$ref":"#/$defs/records"},"diagnostics":{"$ref":"#/$defs/records"},"obligationClaims":{"$ref":"#/$defs/records"},
+    "changedPaths":{"$ref":"#/$defs/strings"},"mutationEvidence":{"$ref":"#/$defs/strings"},
+    "completeness":{"enum":["complete","partial","none"]},
+    "limitations":{"$ref":"#/$defs/strings"},"documentationImpact":{"$ref":"#/$defs/strings"},
+    "requestedNextResponsibility":{"type":"object","additionalProperties":false,"required":["responsibility","prerequisites","advisory"],"properties":{"responsibility":{"type":"string","minLength":1},"prerequisites":{"$ref":"#/$defs/strings"},"advisory":{"const":true}}}
+  },
+  "$defs": {
+    "identity":{"type":"string","pattern":"^sha256:(?:[a-z][a-z0-9-]*:v1:)?[0-9a-f]{64}$"},
+    "strings":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "records":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","description"],"properties":{"id":{"type":"string","minLength":1},"description":{"type":"string","minLength":1},"artifactRefs":{"$ref":"#/$defs/strings"},"receiptRefs":{"$ref":"#/$defs/strings"},"obligationRefs":{"$ref":"#/$defs/strings"},"status":{"type":"string","minLength":1},"path":{"type":"string","minLength":1},"identity":{"$ref":"#/$defs/identity"},"mediaType":{"type":"string","minLength":1},"details":{"type":"string","minLength":1}}}}
+  }
+}
