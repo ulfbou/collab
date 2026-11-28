@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ulfbou.github.io/collab/schemas/result-acceptance.schema.json",
+  "title": "Result Acceptance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "normalizationVersion",
+    "acceptanceDecisionId",
+    "structuralVerification",
+    "applicabilityVerification",
+    "scopeVerification",
+    "artifactVerification",
+    "receiptVerification",
+    "liveVerification",
+    "outcome",
+    "transitionEligible",
+    "acceptedClaims",
+    "acceptedObservations",
+    "acceptedArtifacts",
+    "acceptedReceipts",
+    "retainedPartialEvidence",
+    "satisfiedObligations",
+    "unsatisfiedObligations",
+    "limitations",
+    "diagnostics",
+    "lawfulContinuation"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/result-acceptance/v1"
+    },
+    "normalizationVersion": {
+      "const": "1"
+    },
+    "acceptanceDecisionId": {
+      "type": "string",
+      "pattern": "^sha256:result-acceptance:v1:[0-9a-f]{64}$"
+    },
+    "controllingStateId": {
+      "type": "string"
+    },
+    "captureId": {
+      "type": "string"
+    },
+    "collaborationResultId": {
+      "type": "string"
+    },
+    "controllingIdentities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "structuralVerification": {
+      "enum": [
+        "passed",
+        "failed"
+      ]
+    },
+    "applicabilityVerification": {
+      "enum": [
+        "passed",
+        "failed",
+        "not-performed"
+      ]
+    },
+    "scopeVerification": {
+      "enum": [
+        "passed",
+        "failed",
+        "not-performed"
+      ]
+    },
+    "artifactVerification": {
+      "enum": [
+        "passed",
+        "failed",
+        "not-performed"
+      ]
+    },
+    "receiptVerification": {
+      "enum": [
+        "passed",
+        "failed",
+        "not-performed"
+      ]
+    },
+    "liveVerification": {
+      "enum": [
+        "passed",
+        "failed",
+        "missing",
+        "not-performed"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "ACCEPTED",
+        "PARTIAL_EVIDENCE_RETAINED",
+        "BLOCKED_EVIDENCE_RETAINED",
+        "FAILED_EVIDENCE_RETAINED",
+        "STALE_REJECTED",
+        "STRUCTURALLY_INVALID",
+        "REQUIRES_LIVE_REOBSERVATION",
+        "REQUIRES_CANDIDATE_REPAIR"
+      ]
+    },
+    "transitionEligible": {
+      "type": "boolean"
+    },
+    "acceptedClaims": {
+      "$ref": "#/$defs/array"
+    },
+    "acceptedObservations": {
+      "$ref": "#/$defs/array"
+    },
+    "acceptedArtifacts": {
+      "$ref": "#/$defs/array"
+    },
+    "acceptedReceipts": {
+      "$ref": "#/$defs/array"
+    },
+    "retainedPartialEvidence": {
+      "$ref": "#/$defs/array"
+    },
+    "satisfiedObligations": {
+      "$ref": "#/$defs/strings"
+    },
+    "unsatisfiedObligations": {
+      "$ref": "#/$defs/strings"
+    },
+    "limitations": {
+      "$ref": "#/$defs/strings"
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/array"
+    },
+    "lawfulContinuation": {
+      "enum": [
+        "PUBLISH_TRANSITION",
+        "PARTIAL_CONTINUATION",
+        "LIVE_REOBSERVATION",
+        "REPAIR_CANDIDATE",
+        "NEW_BOUNDARY"
+      ]
+    }
+  },
+  "$defs": {
+    "array": {
+      "type": "array"
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "ACCEPTED"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transitionEligible": {
+            "const": true
+          },
+          "structuralVerification": {
+            "const": "passed"
+          },
+          "applicabilityVerification": {
+            "const": "passed"
+          },
+          "scopeVerification": {
+            "const": "passed"
+          },
+          "artifactVerification": {
+            "const": "passed"
+          },
+          "receiptVerification": {
+            "const": "passed"
+          },
+          "liveVerification": {
+            "const": "passed"
+          },
+          "diagnostics": {
+            "maxItems": 0
+          },
+          "lawfulContinuation": {
+            "const": "PUBLISH_TRANSITION"
+          }
+        },
+        "required": [
+          "controllingStateId",
+          "captureId",
+          "collaborationResultId",
+          "controllingIdentities"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transitionEligible": {
+            "const": true
+          }
+        },
+        "required": [
+          "transitionEligible"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "const": "ACCEPTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "not": {
+              "const": "ACCEPTED"
+            }
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transitionEligible": {
+            "const": false
+          },
+          "lawfulContinuation": {
+            "not": {
+              "const": "PUBLISH_TRANSITION"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
