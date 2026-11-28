@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collab.local/schemas/accepted-transition-publication.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "publicationId",
+    "priorStateIdentity",
+    "acceptanceDecisionId",
+    "transitionId",
+    "nextStateIdentity",
+    "constituents"
+  ],
+  "properties": {
+    "schema": {
+      "const": "collab/accepted-transition-publication/v1"
+    },
+    "publicationId": {
+      "type": "string",
+      "pattern": "^sha256:accepted-transition-publication:v1:[0-9a-f]{64}$"
+    },
+    "priorStateIdentity": {
+      "type": "string"
+    },
+    "acceptanceDecisionId": {
+      "type": "string"
+    },
+    "transitionId": {
+      "type": "string",
+      "pattern": "^sha256:state-transition:v1:[0-9a-f]{64}$"
+    },
+    "nextStateIdentity": {
+      "type": "string",
+      "pattern": "^sha256:v1:[0-9a-f]{64}$"
+    },
+    "constituents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptance.json",
+        "transition.json",
+        "current-state.json"
+      ],
+      "properties": {
+        "acceptance.json": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "transition.json": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "current-state.json": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

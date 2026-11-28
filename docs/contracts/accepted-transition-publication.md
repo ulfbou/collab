@@ -1,0 +1,3 @@
+# Accepted transition publication
+
+Issue #71 alone decides applicability and acceptance. Issue #72 consumes a complete accepted decision, constructs an accepted transition and next Current State, and stores the decision, transition, state, and manifest in one immutable content-identified unit. Constituents are not independently authoritative. `CURRENT` is the only stable advancement point and is replaced atomically after schema and byte verification. A failure before replacement leaves the prior reference authoritative. Exact replay is already complete; stale or conflicting replay is rejected. Writes are limited to immutable publication storage and `CURRENT`; candidate, Git, hosted, synchronization, merge, and cleanup state are outside authority.
